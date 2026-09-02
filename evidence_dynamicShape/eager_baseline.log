@@ -1,0 +1,10 @@
+W0831 10:03:38.492870 40411 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+=== 纯 eager（无 CINN、无 to_static），ppyolo_ppyolo_mbv3_large_coco 基准 paddle.Size([1, 960, 10, 10]) ===
+variant                 shape                   eager_ms
+S0-baseline             [1, 960, 10, 10]         1924.06
+S1-batchx2              [2, 960, 10, 10]           90.93
+S2-spatial/2            [1, 960, 5, 5]              0.60
+S3-spatialx1.5          [1, 960, 15, 15]            0.58
+S4-batchx2-spatial/2    [2, 960, 5, 5]              0.43
+S5-batchx4              [4, 960, 10, 10]           60.83
+S6-batchx2(repeat)      [2, 960, 10, 10]            0.57

@@ -1,0 +1,166 @@
+W0901 07:19:41.904464 147878 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+INPUTSPEC: [(-1, 72, -1, -1)]
+I0901 07:19:42.044694 147878 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0901 07:19:42.046066 147878 shape_optimization_pass.cc:225] ===================== ShapeOptimizationPass Run start... =====================
+===================== [ShapeDialect]Origin Program =====================
+{
+    (%0) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_3",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<72x18x1x1xf32> { () }
+    (%1) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_2",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<18x72x1x1xf32> { () }
+    (%2) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_1",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<72xf32> { () }
+    (%3) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_0",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<18xf32> { () }
+    (%4) = "pd_op.data" () {dtype:float32,name:"var_0",place:Place(undefined:0),shape:[-1,72,-1,-1],stop_gradient:[true]} : () -> tensor<-1x72x-1x-1xf32> { () }
+    (%5) = "pd_op.full_int_array" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,1]} : () -> tensor<2xi64> { () }
+    (%6) = "pd_op.pool2d" (%4, %5) {adaptive:true,ceil_mode:false,data_format:"NCHW",exclusive:true,global_pooling:false,padding_algorithm:"EXPLICIT",paddings:[0,0],pooling_type:"avg",stop_gradient:[true],strides:[1,1]} : (tensor<-1x72x-1x-1xf32>, tensor<2xi64>) -> tensor<-1x72x1x1xf32> { () }
+    (%7) = "pd_op.conv2d" (%6, %1) {data_format:"NCHW",dilations:[1,1],groups:1,padding_algorithm:"EXPLICIT",paddings:[0,0],stop_gradient:[false],strides:[1,1]} : (tensor<-1x72x1x1xf32>, tensor<18x72x1x1xf32>) -> tensor<-1x18x1x1xf32> { () }
+    (%8) = "pd_op.full_int_array" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,-1,1,1]} : () -> tensor<4xi64> { () }
+    (%9) = "pd_op.reshape" (%3, %8) {stop_gradient:[false]} : (tensor<18xf32>, tensor<4xi64>) -> tensor<1x18x1x1xf32> { () }
+    (%10) = "pd_op.add" (%7, %9) {stop_gradient:[false]} : (tensor<-1x18x1x1xf32>, tensor<1x18x1x1xf32>) -> tensor<-1x18x1x1xf32> { () }
+    (%11) = "pd_op.full" () {comp_op_name:"pd_op.relu",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0} : () -> tensor<f32> { () }
+    (%12) = "pd_op.maximum" (%10, %11) {comp_op_name:"pd_op.relu",stop_gradient:[false]} : (tensor<-1x18x1x1xf32>, tensor<f32>) -> tensor<-1x18x1x1xf32> { () }
+    (%13) = "pd_op.conv2d" (%12, %0) {data_format:"NCHW",dilations:[1,1],groups:1,padding_algorithm:"EXPLICIT",paddings:[0,0],stop_gradient:[false],strides:[1,1]} : (tensor<-1x18x1x1xf32>, tensor<72x18x1x1xf32>) -> tensor<-1x72x1x1xf32> { () }
+    (%14) = "pd_op.full_int_array" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,-1,1,1]} : () -> tensor<4xi64> { () }
+    (%15) = "pd_op.reshape" (%2, %14) {stop_gradient:[false]} : (tensor<72xf32>, tensor<4xi64>) -> tensor<1x72x1x1xf32> { () }
+    (%16) = "pd_op.add" (%13, %15) {stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<1x72x1x1xf32>) -> tensor<-1x72x1x1xf32> { () }
+    (%17) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0} : () -> tensor<f32> { () }
+    (%18) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:1} : () -> tensor<f32> { () }
+    (%19) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0.5} : () -> tensor<f32> { () }
+    (%20) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0.166667} : () -> tensor<f32> { () }
+    (%21) = "pd_op.multiply" (%16, %20) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { () }
+    (%22) = "pd_op.add" (%21, %19) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { () }
+    (%23) = "pd_op.minimum" (%22, %18) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { () }
+    (%24) = "pd_op.maximum" (%23, %17) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { () }
+    (%25) = "pd_op.multiply" (%4, %24) {stop_gradient:[false]} : (tensor<-1x72x-1x-1xf32>, tensor<-1x72x1x1xf32>) -> tensor<-1x72x-1x-1xf32> { () }
+    () = "builtin.shadow_output" (%25) {output_name:"output_0"} : (tensor<-1x72x-1x-1xf32>) ->  {  }
+}
+
+I0901 07:19:42.048877 147878 shape_optimization_pass.cc:114] builtin.parameter(op_id: op_84, num_results=1) has InferSymbolicShapeInterface.
+	(%op_84_0) = "builtin.parameter(op_84)" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_3",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<72x18x1x1xf32>
+	result(0) ShapeOrData: {shape[72, 18, 1, 1], data[NULL] }
+I0901 07:19:42.048966 147878 shape_optimization_pass.cc:114] builtin.parameter(op_id: op_85, num_results=1) has InferSymbolicShapeInterface.
+	(%op_85_0) = "builtin.parameter(op_85)" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_2",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<18x72x1x1xf32>
+	result(0) ShapeOrData: {shape[18, 72, 1, 1], data[NULL] }
+I0901 07:19:42.048987 147878 shape_optimization_pass.cc:114] builtin.parameter(op_id: op_86, num_results=1) has InferSymbolicShapeInterface.
+	(%op_86_0) = "builtin.parameter(op_86)" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_1",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<72xf32>
+	result(0) ShapeOrData: {shape[72], data[NULL] }
+I0901 07:19:42.049006 147878 shape_optimization_pass.cc:114] builtin.parameter(op_id: op_87, num_results=1) has InferSymbolicShapeInterface.
+	(%op_87_0) = "builtin.parameter(op_87)" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_0",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<18xf32>
+	result(0) ShapeOrData: {shape[18], data[NULL] }
+I0901 07:19:42.049031 147878 shape_optimization_pass.cc:114] pd_op.data(op_id: op_88, num_results=1) has InferSymbolicShapeInterface.
+	(%op_88_0) = "pd_op.data(op_88)" () {dtype:float32,name:"var_0",place:Place(undefined:0),shape:[-1,72,-1,-1],stop_gradient:[true]} : () -> tensor<-1x72x-1x-1xf32>
+	result(0) ShapeOrData: {shape[S0, 72, S1, S2], data[NULL] }
+I0901 07:19:42.049086 147878 shape_optimization_pass.cc:114] pd_op.full_int_array(op_id: op_89, num_results=1) has InferSymbolicShapeInterface.
+	(%op_89_0) = "pd_op.full_int_array(op_89)" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,1]} : () -> tensor<2xi64>
+	result(0) ShapeOrData: {shape[2], data[1, 1] }
+I0901 07:19:42.049122 147878 shape_optimization_pass.cc:114] pd_op.pool2d(op_id: op_90, num_results=1) has InferSymbolicShapeInterface.
+	(%op_90_0) = "pd_op.pool2d(op_90)" (op_88_0, op_89_0) {adaptive:true,ceil_mode:false,data_format:"NCHW",exclusive:true,global_pooling:false,padding_algorithm:"EXPLICIT",paddings:[0,0],pooling_type:"avg",stop_gradient:[true],strides:[1,1]} : (tensor<-1x72x-1x-1xf32>, tensor<2xi64>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049183 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.pool2d
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049221 147878 shape_optimization_pass.cc:114] pd_op.conv2d(op_id: op_91, num_results=1) has InferSymbolicShapeInterface.
+	(%op_91_0) = "pd_op.conv2d(op_91)" (op_90_0, op_85_0) {data_format:"NCHW",dilations:[1,1],groups:1,padding_algorithm:"EXPLICIT",paddings:[0,0],stop_gradient:[false],strides:[1,1]} : (tensor<-1x72x1x1xf32>, tensor<18x72x1x1xf32>) -> tensor<-1x18x1x1xf32>
+I0901 07:19:42.049279 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.conv2d
+	result(0) ShapeOrData: {shape[S0, 18, 1, 1], data[NULL] }
+I0901 07:19:42.049301 147878 shape_optimization_pass.cc:114] pd_op.full_int_array(op_id: op_92, num_results=1) has InferSymbolicShapeInterface.
+	(%op_92_0) = "pd_op.full_int_array(op_92)" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,-1,1,1]} : () -> tensor<4xi64>
+	result(0) ShapeOrData: {shape[4], data[1, -1, 1, 1] }
+I0901 07:19:42.049324 147878 shape_optimization_pass.cc:114] pd_op.reshape(op_id: op_93, num_results=1) has InferSymbolicShapeInterface.
+	(%op_93_0) = "pd_op.reshape(op_93)" (op_87_0, op_92_0) {stop_gradient:[false]} : (tensor<18xf32>, tensor<4xi64>) -> tensor<1x18x1x1xf32>
+I0901 07:19:42.049350 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.reshape
+	result(0) ShapeOrData: {shape[1, 18, 1, 1], data[NULL] }
+I0901 07:19:42.049365 147878 shape_optimization_pass.cc:114] pd_op.add(op_id: op_94, num_results=1) has InferSymbolicShapeInterface.
+	(%op_94_0) = "pd_op.add(op_94)" (op_91_0, op_93_0) {stop_gradient:[false]} : (tensor<-1x18x1x1xf32>, tensor<1x18x1x1xf32>) -> tensor<-1x18x1x1xf32>
+I0901 07:19:42.049393 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.add
+	result(0) ShapeOrData: {shape[S0, 18, 1, 1], data[NULL] }
+I0901 07:19:42.049412 147878 shape_optimization_pass.cc:114] pd_op.full(op_id: op_95, num_results=1) has InferSymbolicShapeInterface.
+	(%op_95_0) = "pd_op.full(op_95)" () {comp_op_name:"pd_op.relu",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0} : () -> tensor<f32>
+	result(0) ShapeOrData: {shape[], data[0] }
+I0901 07:19:42.049443 147878 shape_optimization_pass.cc:114] pd_op.maximum(op_id: op_96, num_results=1) has InferSymbolicShapeInterface.
+	(%op_96_0) = "pd_op.maximum(op_96)" (op_94_0, op_95_0) {comp_op_name:"pd_op.relu",stop_gradient:[false]} : (tensor<-1x18x1x1xf32>, tensor<f32>) -> tensor<-1x18x1x1xf32>
+I0901 07:19:42.049463 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.maximum
+	result(0) ShapeOrData: {shape[S0, 18, 1, 1], data[NULL] }
+I0901 07:19:42.049485 147878 shape_optimization_pass.cc:114] pd_op.conv2d(op_id: op_97, num_results=1) has InferSymbolicShapeInterface.
+	(%op_97_0) = "pd_op.conv2d(op_97)" (op_96_0, op_84_0) {data_format:"NCHW",dilations:[1,1],groups:1,padding_algorithm:"EXPLICIT",paddings:[0,0],stop_gradient:[false],strides:[1,1]} : (tensor<-1x18x1x1xf32>, tensor<72x18x1x1xf32>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049507 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.conv2d
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049525 147878 shape_optimization_pass.cc:114] pd_op.full_int_array(op_id: op_98, num_results=1) has InferSymbolicShapeInterface.
+	(%op_98_0) = "pd_op.full_int_array(op_98)" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,-1,1,1]} : () -> tensor<4xi64>
+	result(0) ShapeOrData: {shape[4], data[1, -1, 1, 1] }
+I0901 07:19:42.049547 147878 shape_optimization_pass.cc:114] pd_op.reshape(op_id: op_99, num_results=1) has InferSymbolicShapeInterface.
+	(%op_99_0) = "pd_op.reshape(op_99)" (op_86_0, op_98_0) {stop_gradient:[false]} : (tensor<72xf32>, tensor<4xi64>) -> tensor<1x72x1x1xf32>
+I0901 07:19:42.049561 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.reshape
+	result(0) ShapeOrData: {shape[1, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049572 147878 shape_optimization_pass.cc:114] pd_op.add(op_id: op_100, num_results=1) has InferSymbolicShapeInterface.
+	(%op_100_0) = "pd_op.add(op_100)" (op_97_0, op_99_0) {stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<1x72x1x1xf32>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049590 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.add
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049603 147878 shape_optimization_pass.cc:114] pd_op.full(op_id: op_101, num_results=1) has InferSymbolicShapeInterface.
+	(%op_101_0) = "pd_op.full(op_101)" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0} : () -> tensor<f32>
+	result(0) ShapeOrData: {shape[], data[0] }
+I0901 07:19:42.049626 147878 shape_optimization_pass.cc:114] pd_op.full(op_id: op_102, num_results=1) has InferSymbolicShapeInterface.
+	(%op_102_0) = "pd_op.full(op_102)" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:1} : () -> tensor<f32>
+	result(0) ShapeOrData: {shape[], data[1] }
+I0901 07:19:42.049646 147878 shape_optimization_pass.cc:114] pd_op.full(op_id: op_103, num_results=1) has InferSymbolicShapeInterface.
+	(%op_103_0) = "pd_op.full(op_103)" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0.5} : () -> tensor<f32>
+	result(0) ShapeOrData: {shape[], data[NULL] }
+I0901 07:19:42.049665 147878 shape_optimization_pass.cc:114] pd_op.full(op_id: op_104, num_results=1) has InferSymbolicShapeInterface.
+	(%op_104_0) = "pd_op.full(op_104)" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0.166667} : () -> tensor<f32>
+	result(0) ShapeOrData: {shape[], data[NULL] }
+I0901 07:19:42.049682 147878 shape_optimization_pass.cc:114] pd_op.multiply(op_id: op_105, num_results=1) has InferSymbolicShapeInterface.
+	(%op_105_0) = "pd_op.multiply(op_105)" (op_100_0, op_104_0) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049700 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.multiply
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049715 147878 shape_optimization_pass.cc:114] pd_op.add(op_id: op_106, num_results=1) has InferSymbolicShapeInterface.
+	(%op_106_0) = "pd_op.add(op_106)" (op_105_0, op_103_0) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049736 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.add
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049749 147878 shape_optimization_pass.cc:114] pd_op.minimum(op_id: op_107, num_results=1) has InferSymbolicShapeInterface.
+	(%op_107_0) = "pd_op.minimum(op_107)" (op_106_0, op_102_0) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049765 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.minimum
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049779 147878 shape_optimization_pass.cc:114] pd_op.maximum(op_id: op_108, num_results=1) has InferSymbolicShapeInterface.
+	(%op_108_0) = "pd_op.maximum(op_108)" (op_107_0, op_101_0) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32>
+I0901 07:19:42.049793 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.maximum
+	result(0) ShapeOrData: {shape[S0, 72, 1, 1], data[NULL] }
+I0901 07:19:42.049804 147878 shape_optimization_pass.cc:114] pd_op.multiply(op_id: op_109, num_results=1) has InferSymbolicShapeInterface.
+	(%op_109_0) = "pd_op.multiply(op_109)" (op_88_0, op_108_0) {stop_gradient:[false]} : (tensor<-1x72x-1x-1xf32>, tensor<-1x72x1x1xf32>) -> tensor<-1x72x-1x-1xf32>
+I0901 07:19:42.049819 147878 shape_optimization_pass.cc:412] CacheBackwardOpSymbolicShape for: pd_op.multiply
+	result(0) ShapeOrData: {shape[S0, 72, S1, S2], data[NULL] }
+I0901 07:19:42.049834 147878 shape_optimization_pass.cc:114] builtin.shadow_output(op_id: op_110, num_results=0) has InferSymbolicShapeInterface.
+	() = "builtin.shadow_output(op_110)" (op_109_0) {output_name:"output_0"} : (tensor<-1x72x-1x-1xf32>) -> 
+===================== [ShapeDialect]ShapeOptimizationPass Program =====================
+{
+    (%0) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_3",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<72x18x1x1xf32> { (shape[72, 18, 1, 1], data[NULL]) }
+    (%1) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_2",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<18x72x1x1xf32> { (shape[18, 72, 1, 1], data[NULL]) }
+    (%2) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_1",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<72xf32> { (shape[72], data[NULL]) }
+    (%3) = "builtin.parameter" () {is_distributed:[false],is_parameter:[true],need_clip:[true],parameter_name:"layer_case_0.w_0",persistable:[true],stop_gradient:[false],trainable:[true]} : () -> tensor<18xf32> { (shape[18], data[NULL]) }
+    (%4) = "pd_op.data" () {dtype:float32,name:"var_0",place:Place(undefined:0),shape:[-1,72,-1,-1],stop_gradient:[true]} : () -> tensor<-1x72x-1x-1xf32> { (shape[S0, 72, S1, S2], data[NULL]) }
+    (%5) = "pd_op.full_int_array" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,1]} : () -> tensor<2xi64> { (shape[2], data[1, 1]) }
+    (%6) = "pd_op.pool2d" (%4, %5) {adaptive:true,ceil_mode:false,data_format:"NCHW",exclusive:true,global_pooling:false,padding_algorithm:"EXPLICIT",paddings:[0,0],pooling_type:"avg",stop_gradient:[true],strides:[1,1]} : (tensor<-1x72x-1x-1xf32>, tensor<2xi64>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%7) = "pd_op.conv2d" (%6, %1) {data_format:"NCHW",dilations:[1,1],groups:1,padding_algorithm:"EXPLICIT",paddings:[0,0],stop_gradient:[false],strides:[1,1]} : (tensor<-1x72x1x1xf32>, tensor<18x72x1x1xf32>) -> tensor<-1x18x1x1xf32> { (shape[S0, 18, 1, 1], data[NULL]) }
+    (%8) = "pd_op.full_int_array" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,-1,1,1]} : () -> tensor<4xi64> { (shape[4], data[1, -1, 1, 1]) }
+    (%9) = "pd_op.reshape" (%3, %8) {stop_gradient:[false]} : (tensor<18xf32>, tensor<4xi64>) -> tensor<1x18x1x1xf32> { (shape[1, 18, 1, 1], data[NULL]) }
+    (%10) = "pd_op.add" (%7, %9) {stop_gradient:[false]} : (tensor<-1x18x1x1xf32>, tensor<1x18x1x1xf32>) -> tensor<-1x18x1x1xf32> { (shape[S0, 18, 1, 1], data[NULL]) }
+    (%11) = "pd_op.full" () {comp_op_name:"pd_op.relu",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0} : () -> tensor<f32> { (shape[], data[0]) }
+    (%12) = "pd_op.maximum" (%10, %11) {comp_op_name:"pd_op.relu",stop_gradient:[false]} : (tensor<-1x18x1x1xf32>, tensor<f32>) -> tensor<-1x18x1x1xf32> { (shape[S0, 18, 1, 1], data[NULL]) }
+    (%13) = "pd_op.conv2d" (%12, %0) {data_format:"NCHW",dilations:[1,1],groups:1,padding_algorithm:"EXPLICIT",paddings:[0,0],stop_gradient:[false],strides:[1,1]} : (tensor<-1x18x1x1xf32>, tensor<72x18x1x1xf32>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%14) = "pd_op.full_int_array" () {dtype:int64,place:Place(cpu),stop_gradient:[true],value:[1,-1,1,1]} : () -> tensor<4xi64> { (shape[4], data[1, -1, 1, 1]) }
+    (%15) = "pd_op.reshape" (%2, %14) {stop_gradient:[false]} : (tensor<72xf32>, tensor<4xi64>) -> tensor<1x72x1x1xf32> { (shape[1, 72, 1, 1], data[NULL]) }
+    (%16) = "pd_op.add" (%13, %15) {stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<1x72x1x1xf32>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%17) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0} : () -> tensor<f32> { (shape[], data[0]) }
+    (%18) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:1} : () -> tensor<f32> { (shape[], data[1]) }
+    (%19) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0.5} : () -> tensor<f32> { (shape[], data[NULL]) }
+    (%20) = "pd_op.full" () {comp_op_name:"pd_op.hardsigmoid",dtype:float32,place:Place(undefined:0),shape:[],stop_gradient:[true],value:0.166667} : () -> tensor<f32> { (shape[], data[NULL]) }
+    (%21) = "pd_op.multiply" (%16, %20) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%22) = "pd_op.add" (%21, %19) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%23) = "pd_op.minimum" (%22, %18) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%24) = "pd_op.maximum" (%23, %17) {comp_op_name:"pd_op.hardsigmoid",stop_gradient:[false]} : (tensor<-1x72x1x1xf32>, tensor<f32>) -> tensor<-1x72x1x1xf32> { (shape[S0, 72, 1, 1], data[NULL]) }
+    (%25) = "pd_op.multiply" (%4, %24) {stop_gradient:[false]} : (tensor<-1x72x-1x-1xf32>, tensor<-1x72x1x1xf32>) -> tensor<-1x72x-1x-1xf32> { (shape[S0, 72, S1, S2], data[NULL]) }
+    () = "builtin.shadow_output" (%25) {output_name:"output_0"} : (tensor<-1x72x-1x-1xf32>) ->  {  }
+}
+
+I0901 07:19:42.052328 147878 shape_optimization_pass.cc:243] ===================== ShapeOptimizationPass Run End. =====================
+I0901 07:19:46.995205 147878 pir_interpreter.cc:1605] New Executor is Running ...
+I0901 07:19:46.995945 147878 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+RAN: [1, 72, 88, 88] -> out shapes: [[1, 72, 88, 88]]
+RAN: [2, 72, 88, 88] -> out shapes: [[2, 72, 88, 88]]
+RAN: [1, 72, 44, 44] -> out shapes: [[1, 72, 44, 44]]
+DONE

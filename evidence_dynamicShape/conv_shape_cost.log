@@ -1,0 +1,10 @@
+W0831 10:03:48.768034 40590 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+裸 conv2d([N,960,1,1] -> 240)，干净进程
+N            ms   说明
+1        514.18   首次 N=1（含 cuDNN 首次初始化）
+2         51.49   首次 N=2
+1          0.28   N=1 重复
+4         34.69   首次 N=4
+2          0.24   N=2 重复
+8         43.95   首次 N=8
+4          0.27   N=4 重复

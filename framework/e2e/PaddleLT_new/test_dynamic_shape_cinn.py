@@ -12,12 +12,32 @@ CINN 可变形状输入张量自动调优验证脚本
   3. 用带 -1 的动态 InputSpec 对 CINN 实例只 to_static 编译"一次"。
   4. 依次喂入多组匹配动态维的具体 shape，逐一：
        - 与 eager(动态图)输出做数值一致性校验；
-       - 记录每个 shape 的前向耗时，观测"首见 shape 触发编译/调优、
-         再见 shape 复用缓存"这一自动调优证据。
+       - 记录该 shape 触发的 CINN codegen 事件数(codegen)。
+    codegen 的计数方式：让 CINN 把每次生成的源码追加落盘
+    (FLAGS_cinn_source_code_save_path)，统计文件中 `extern "C" {` 块的新增个数。
+    SourceCodePrint 的 ofstream 在单例构造时以 trunc 打开一次、之后每次 write() 追加
+    (paddle/cinn/backends/compiler.cc:220-253)，故块数单调递增，可按 shape 做差分。
+    这是可比的计数：同一 case 内多 shape 只在首个 shape 产生 = group 数的事件；
+    不同 case(通道数 C 不同即为不同子图)各自产生自己的事件。
+
+    历史坑：曾用 glog 标记 "Compiling subgraph with CINN backend" 计数，该语句是
+      LOG_FIRST_N(INFO, 1) << ...   (add_cinn_pass.cc:334)
+    静态计数器使其整个进程最多打印一次，导致第 2 个 case 起恒为 0、
+    看不到不同 C 的子图各自发生的编译。该计数已废弃，不再出现在报告里。
+
+    判定 shape 是否被符号化处理，另可打印中间 IR：
+      GLOG_vmodule='shape_o*=3' 观察 [ShapeDialect] 段动态维标注为 S0/S1/...；
+      （必须用这种 <=15 字节的短 glob 写法：本 build 中长度 >= 16 字节的 GLOG_* 字符串型
+        环境变量会让进程在退出析构期 double free 并挂死，详见 evidence_dynamicShape/
+        ir_probe.py 的模块注释与 glog_multilink_evidence.log）
+      FLAGS_cinn_source_code_save_path 导出的源码里动态维应为运行期 int32_t 形参；
+      FLAGS_enable_cinn_compile_cache=false 关缓存后比较 codegen 事件增量。
 
 用法：
-    python test_dynamic_shape_cinn.py            # 跑内置 10 个 case
-    python test_dynamic_shape_cinn.py <case.py>  # 跑指定单个 layercase 文件
+    python test_dynamic_shape_cinn.py                 # 跑内置 10 个 case
+    python test_dynamic_shape_cinn.py <case.py>       # 跑指定单个 layercase 文件
+    python test_dynamic_shape_cinn.py --static-tuning # 额外做逐 shape 静态编译探针
+    python test_dynamic_shape_cinn.py --static-only <case.py>  # 干净进程只跑静态探针
 """
 import os
 import sys
@@ -25,9 +45,15 @@ import time
 import tempfile
 import importlib.util
 
-# 让 CINN 编译日志(INFO)即时刷新到 stderr，便于按 shape 逐个采集编译事件。
-# 必须在 import paddle 之前设置。
+# 让 CINN 编译日志(INFO)即时刷新到 stderr。必须在 import paddle 之前设置。
 os.environ.setdefault("GLOG_logbufsecs", "0")
+
+# 可靠的编译次数计数：让 CINN 把每次 codegen 的源码追加落盘，统计 `extern "C" {` 块数。
+# 必须在 import paddle 之前设置；允许外部预先 export 同名 FLAGS 以自定义落盘位置。
+CODEGEN_SRC = os.environ.setdefault(
+    "FLAGS_cinn_source_code_save_path",
+    os.path.join(tempfile.mkdtemp(prefix="cinn_codegen_"), "cinn_source.cu"),
+)
 
 import numpy as np
 import paddle
@@ -67,32 +93,29 @@ VARIANTS = [
 ATOL = 1e-5
 RTOL = 1e-5
 
-# CINN 触发一次子图编译时打印的 glog 标记（add_cinn_pass.cc）。
-# 用它按 shape 统计"是否发生编译/调优"，作为自动调优的直接证据（而非仅凭耗时推断）。
-COMPILE_MARKER = "Compiling subgraph with CINN backend"
+# CINN 每完成一次 codegen 就往 CODEGEN_SRC 追加一个 `extern "C" { ... }` 块。
+CODEGEN_BLOCK = 'extern "C" {'
+_CODEGEN_SEEN = 0
 
 
-class _CaptureStderrFd:
-    """在 fd 级别捕获 C++(glog) 写到 stderr 的日志，用于统计 CINN 编译事件。"""
+def _codegen_total():
+    """累计 codegen 事件数；文件尚未生成(计数不可用)时返回 -1。"""
+    try:
+        with open(CODEGEN_SRC, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read().count(CODEGEN_BLOCK)
+    except FileNotFoundError:
+        return -1
 
-    def __enter__(self):
-        sys.stderr.flush()
-        self._saved = os.dup(2)
-        self._tmp = tempfile.TemporaryFile(mode="w+b")
-        os.dup2(self._tmp.fileno(), 2)
-        return self
 
-    def __exit__(self, *exc):
-        try:
-            sys.stderr.flush()
-        finally:
-            os.dup2(self._saved, 2)
-            os.close(self._saved)
-        self._tmp.seek(0)
-        self.text = self._tmp.read().decode("utf-8", "ignore")
-        self._tmp.close()
-        return False
-
+def _codegen_delta():
+    """自上次调用以来新增的 codegen 事件数；计数不可用时返回 -1。"""
+    global _CODEGEN_SEEN
+    cur = _codegen_total()
+    if cur < 0:
+        return -1
+    delta = cur - _CODEGEN_SEEN
+    _CODEGEN_SEEN = cur
+    return delta
 
 
 def _load_module(case_path):
@@ -122,6 +145,11 @@ def _make_shape(base_shape, dyn_dims, batch_f, spatial_f):
     return new
 
 
+def _fmt_shapes(shapes):
+    """多输入时打印列表，单输入时直接打印该 shape。"""
+    return str(shapes[0]) if len(shapes) == 1 else str(shapes)
+
+
 def _build_nets(module):
     """构造共享同一份权重的 eager 网络与 CINN 编译网络。"""
     paddle.seed(123)
@@ -148,7 +176,10 @@ def run_case(case_path):
       - SKIP:shape  —— 构造输入或 eager 前向即失败，说明该 shape 对本子图非法，可跳过
       - FAIL:cinn   —— CINN 前向自身抛异常
       - FAIL:numeric—— CINN 与 eager 数值不一致（真 bug，必须判失败）
-    并记录 cinn 前向耗时 dt_ms 与该 shape 触发的 CINN 编译事件数 compiles。
+    并记录 cinn 前向耗时 dt_ms 与该 shape 触发的 CINN codegen 事件数 codegen。
+
+    返回 (rows, spec_shapes)，spec_shapes 为动态 InputSpec 的 shape（含 -1），
+    打进报告以体现"这一次编译的入口是动态的"。
     """
     module = _load_module(case_path)
     base_inputs = list(module.create_tensor_inputs())
@@ -162,7 +193,7 @@ def run_case(case_path):
     rows = []
     for bf, sf, tag in VARIANTS:
         shapes = [_make_shape(bs, d, bf, sf) for bs, d in zip(base_shapes, dyn)]
-        row = {"tag": tag, "shapes": shapes, "dt_ms": -1.0, "compiles": -1}
+        row = {"tag": tag, "shapes": shapes, "dt_ms": -1.0, "codegen": -1}
 
         # 阶段 1：构造输入 + eager 前向。此处失败 => 该 shape 非法 => SKIP（不算错误）
         try:
@@ -174,14 +205,13 @@ def run_case(case_path):
             rows.append(row)
             continue
 
-        # 阶段 2：CINN 前向（捕获编译日志）。抛异常 => FAIL:cinn
+        # 阶段 2：CINN 前向。首个 shape 会触发符号化编译。抛异常 => FAIL:cinn
         try:
-            with _CaptureStderrFd() as cap:
-                t0 = time.time()
-                cinn_out = net_cinn(*inputs)
-                paddle.device.synchronize()
-                row["dt_ms"] = (time.time() - t0) * 1000.0
-            row["compiles"] = cap.text.count(COMPILE_MARKER)
+            t0 = time.time()
+            cinn_out = net_cinn(*inputs)
+            paddle.device.synchronize()
+            row["dt_ms"] = (time.time() - t0) * 1000.0
+            row["codegen"] = _codegen_delta()
         except Exception as exc:  # noqa: BLE001
             row["status"] = f"FAIL:cinn({type(exc).__name__})"
             rows.append(row)
@@ -197,7 +227,7 @@ def run_case(case_path):
         except AssertionError:
             row["status"] = "FAIL:numeric"
         rows.append(row)
-    return rows
+    return rows, [list(s.shape) for s in input_spec]
 
 
 
@@ -205,7 +235,7 @@ def probe_static_tuning(case_path, factors=((1.0, 1.0), (1.0, 0.5), (2.0, 1.0)))
     """按 shape 自动调优的直接证据（静态 spec 路径）。
 
     对每个不同的具体 shape，用【静态 InputSpec（无 -1）】各自 to_static(CINN) 编译一次，
-    统计每次的 CINN 编译事件数并做数值校验。预期：每个不同 shape 都 compiles>=1，
+    统计每次的 codegen 事件数并做数值校验。预期：每个不同 shape 都 codegen>=1，
     即"CINN 根据不同张量形状分别触发编译/自动调度(auto-schedule)调优"。
     """
     module = _load_module(case_path)
@@ -223,7 +253,7 @@ def probe_static_tuning(case_path, factors=((1.0, 1.0), (1.0, 0.5), (2.0, 1.0)))
     rows = []
     for bf, sf in factors:
         shapes = [_make_shape(bs, d, bf, sf) for bs, d in zip(base_shapes, dyn)]
-        row = {"shapes": shapes, "compiles": -1, "status": "?"}
+        row = {"shapes": shapes, "codegen": -1, "status": "?"}
         try:
             paddle.seed(123)
             net = module.LayerCase()
@@ -240,10 +270,9 @@ def probe_static_tuning(case_path, factors=((1.0, 1.0), (1.0, 0.5), (2.0, 1.0)))
             paddle.seed(2024)
             inputs = [paddle.rand(shape=sp, dtype=dt) for sp, dt in zip(shapes, dtypes)]
             eager_out = net_eager(*inputs)
-            with _CaptureStderrFd() as cap:
-                cinn_out = net(*inputs)
-                paddle.device.synchronize()
-            row["compiles"] = cap.text.count(COMPILE_MARKER)
+            cinn_out = net(*inputs)
+            paddle.device.synchronize()
+            row["codegen"] = _codegen_delta()
             for e, c in zip(
                 paddle.utils.flatten(eager_out), paddle.utils.flatten(cinn_out)
             ):
@@ -260,28 +289,35 @@ def probe_static_tuning(case_path, factors=((1.0, 1.0), (1.0, 0.5), (2.0, 1.0)))
 def _print_static_report(case_rel, rows):
     print("\n" + "-" * 84)
     print(f"[静态spec/按shape编译] {case_rel}")
-    print(f"{'shape':<26}{'compiles':>9}{'status':>16}")
+    print(f"{'shape':<26}{'codegen':>9}{'status':>16}")
     for r in rows:
-        s = str(r["shapes"][0]) if len(r["shapes"]) == 1 else str(r["shapes"])
-        c = str(r["compiles"]) if r["compiles"] >= 0 else "-"
+        s = _fmt_shapes(r["shapes"])
+        c = str(r["codegen"]) if r["codegen"] >= 0 else "-"
         print(f"{s:<26}{c:>9}{r['status']:>16}")
-    each_compiled = all(r["compiles"] >= 1 for r in rows if r["status"] == "PASS")
     npass = sum(1 for r in rows if r["status"] == "PASS")
-    print(f"每个不同 shape 均独立触发编译: {'是' if each_compiled else '否'}  (PASS={npass}/{len(rows)})")
+    vals = [r["codegen"] for r in rows if r["status"] == "PASS"]
+    if vals and all(v >= 0 for v in vals):
+        each_compiled = all(v >= 1 for v in vals)
+        verdict = "是" if each_compiled else "否"
+    else:
+        each_compiled = None  # codegen 计数不可用，不参与判定
+        verdict = "计数不可用"
+    print(f"每个不同 shape 均独立触发编译: {verdict}  (PASS={npass}/{len(rows)})")
     return npass, len(rows), each_compiled
 
 
-def _print_case_report(case_rel, rows):
+def _print_case_report(case_rel, rows, spec_shapes=None):
     """打印单 case 报告，返回 (n_pass, n_fail, n_skip, n_total)。"""
     print("\n" + "=" * 84)
     print(f"CASE: {case_rel}")
+    if spec_shapes:
+        print(f"inspec (动态编译入口): {_fmt_shapes(spec_shapes)}")
     print("-" * 84)
-    print(f"{'variant':<26}{'shape':<26}{'status':<16}{'compiles':>9}{'cinn_ms':>9}")
+    print(f"{'variant':<26}{'shape':<26}{'status':<16}{'codegen':>9}{'cinn_ms':>9}")
     for r in rows:
-        shapes = r["shapes"]
-        shape_s = str(shapes[0]) if len(shapes) == 1 else str(shapes)
+        shape_s = _fmt_shapes(r["shapes"])
         ms = f"{r['dt_ms']:7.2f}" if r["dt_ms"] >= 0 else "   -   "
-        comp = str(r["compiles"]) if r["compiles"] >= 0 else "-"
+        comp = str(r["codegen"]) if r["codegen"] >= 0 else "-"
         print(f"{r['tag']:<26}{shape_s:<26}{r['status']:<16}{comp:>9}{ms:>9}")
 
     n_pass = sum(1 for r in rows if r["status"] == "PASS")
@@ -290,20 +326,26 @@ def _print_case_report(case_rel, rows):
     print("-" * 84)
     print(f"PASS={n_pass}  FAIL={n_fail}  SKIP={n_skip}  (共 {len(rows)})")
 
-    # 自动调优直接证据：编译事件按 shape 的分布
-    by = {r["tag"]: r for r in rows if r["status"] == "PASS"}
-    comp_events = {t: r["compiles"] for t, r in by.items() if r["compiles"] >= 0}
-    if comp_events:
-        first_seen = [t for t, c in comp_events.items() if c > 0]
-        reused = [t for t, c in comp_events.items() if c == 0]
-        print(f"CINN 编译事件>0 (首见/触发调优): {first_seen}")
-        print(f"CINN 编译事件=0 (复用已编译):    {reused}")
-        if "S1-batchx2" in comp_events and "S6-batchx2(repeat->缓存)" in comp_events:
-            print(
-                f"缓存复用判定: S1 编译数={comp_events['S1-batchx2']}, "
-                f"S6(重复)编译数={comp_events['S6-batchx2(repeat->缓存)']}"
-                + ("  -> S6 复用缓存(编译数=0)" if comp_events['S6-batchx2(repeat->缓存)'] == 0 else "")
-            )
+    # 符号化编译的直接证据：codegen 事件按 shape 的分布
+    events = [
+        (r["tag"], _fmt_shapes(r["shapes"]), r["codegen"])
+        for r in rows
+        if r["status"] == "PASS" and r["codegen"] >= 0
+    ]
+    if events:
+        triggered = [f"{t} {s}" for t, s, c in events if c > 0]
+        reused = [f"{t} {s}" for t, s, c in events if c == 0]
+        total = sum(c for _, _, c in events)
+        # total 是本 case 新增的 codegen 次数。未命中编译缓存时等于该子图的 fusion group 数；
+        # 若同拓扑同通道数的子图已被本进程内别的 case 编译过，则部分/全部 group 命中缓存而计少。
+        note = "未命中缓存的 group 数" if total > 0 else "全部命中编译缓存"
+        print(f"本 case 新增 codegen 事件: {total} ({note})")
+        print(f"触发 codegen 的 shape:    {triggered}")
+        print("未触发(复用已编译)的 shape:")
+        for item in reused:
+            print(f"    {item}")
+    else:
+        print(f"codegen 计数不可用(读不到 {CODEGEN_SRC})")
     return n_pass, n_fail, n_skip, len(rows)
 
 
@@ -311,8 +353,8 @@ def main(argv):
     """用法:
       python test_dynamic_shape_cinn.py [--static-tuning] [<case.py>]
 
-    默认(动态 spec)：同一模型单次符号化编译 + 多 shape 正确性与缓存复用观测。
-    --static-tuning：额外跑"每个不同 shape 各自静态编译"以证明按 shape 独立调优。
+    默认(动态 spec)：同一模型单次符号化编译 + 多 shape 正确性与编译次数观测。
+    --static-tuning：额外跑"每个不同 shape 各自静态编译"探针，检查是否按 shape 独立编译。
     """
     if not paddle.is_compiled_with_cinn():
         print("[SKIP] 当前 Paddle 未编译 CINN (is_compiled_with_cinn()=False)，无法实跑验证。")
@@ -321,6 +363,7 @@ def main(argv):
         print("[SKIP] 当前 Paddle 未编译 CUDA，CINN 需要 GPU。")
         return 2
     paddle.set_device("gpu")
+    print(f"[codegen 计数] CINN 生成源码落盘于: {CODEGEN_SRC}")
 
     static_mode = "--static-tuning" in argv
     static_only = "--static-only" in argv
@@ -333,26 +376,27 @@ def main(argv):
     # --static-only：不跑动态编译，仅做"每个 shape 各自静态编译"，用于在干净进程里
     # 观察 CINN 是否按 shape 分别编译（避免被同进程的结构级编译缓存掩盖）。
     if static_only:
-        each_ok_all = True
+        verdicts = []
         for path in case_list:
             rel = os.path.relpath(path, SUBLAYER_DIR)
             srows = probe_static_tuning(path)
             _sp, _st, each_ok = _print_static_report(rel, srows)
-            each_ok_all = each_ok_all and bool(each_ok)
+            verdicts.append(each_ok)
         print("\n[static-only] 结论: ", end="")
-        print(
-            "每个不同 shape 均独立触发编译 -> 存在按 shape 的编译/调优"
-            if each_ok_all
-            else "并非每个 shape 都触发编译 -> CINN 对同一子图按结构缓存，多 shape 复用同一次编译"
-        )
+        if any(v is None for v in verdicts):
+            print("codegen 计数不可用，无法判定")
+        elif all(verdicts):
+            print("每个不同 shape 均独立触发编译 -> 存在按 shape 的编译/调优")
+        else:
+            print("并非每个 shape 都触发编译 -> CINN 对同一子图按结构缓存，多 shape 复用同一次编译")
         return 0
 
     case_summ = []  # (rel, n_pass, n_fail, n_skip, n_total, static_ok)
     for path in case_list:
         rel = os.path.relpath(path, SUBLAYER_DIR)
         try:
-            rows = run_case(path)
-            p, f, s, t = _print_case_report(rel, rows)
+            rows, spec_shapes = run_case(path)
+            p, f, s, t = _print_case_report(rel, rows, spec_shapes)
         except Exception as exc:  # noqa: BLE001  case 级构建失败 => 视为该 case 失败
             print(f"\n[CASE ERROR] {rel}: {type(exc).__name__}: {exc}")
             p, f, s, t = 0, len(VARIANTS), 0, len(VARIANTS)
@@ -387,6 +431,12 @@ def main(argv):
     tot_pass = sum(x[1] for x in case_summ)
     tot = sum(x[4] for x in case_summ)
     print(f"总计 shape 通过: {tot_pass}/{tot}，覆盖 {len(case_summ)} 个模型子图")
+    total_codegen = _codegen_total()
+    if total_codegen >= 0:
+        print(
+            f"全进程 codegen 事件合计: {total_codegen}"
+            f"（每个 case 各自编译，与 shape 个数无关；源码见 {CODEGEN_SRC}）"
+        )
     print("最终判定:", "全部通过 (exit 0)" if all_ok else "存在 FAIL/SKIP/未按shape调优 (exit 1)")
     return 0 if all_ok else 1
 

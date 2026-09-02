@@ -1,0 +1,13 @@
+W0825 09:16:27.814075 55224 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+I0825 09:16:27.902441 55224 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0825 09:16:27.984999 55224 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/cache_off/src.cu"
+I0825 09:16:33.386307 55224 pir_interpreter.cc:1605] New Executor is Running ...
+I0825 09:16:33.386888 55224 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+SHAPE[0] [1, 72, 88, 88]    5862.54 ms
+SHAPE[1] [2, 72, 88, 88]      80.54 ms
+SHAPE[2] [1, 72, 44, 44]       0.62 ms
+SHAPE[3] [1, 72, 132, 132]       0.56 ms
+SHAPE[4] [2, 72, 44, 44]       0.37 ms
+SHAPE[5] [4, 72, 88, 88]      59.57 ms
+SHAPE[6] [2, 72, 88, 88]       0.43 ms
+DONE

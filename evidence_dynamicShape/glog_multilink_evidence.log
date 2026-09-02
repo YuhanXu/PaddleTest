@@ -1,0 +1,34 @@
+=== SSO 分界线矩阵 (GLOG_vmodule 长度 vs 退出码) ===
+len=3 vmodule='a=1' EXIT=0  err=
+len=15 vmodule='abcdefghijklm=1' EXIT=0  err=
+len=16 vmodule='abcdefghijklmn=1' EXIT=137  err=malloc_consolidate(): invalid chunk size
+len=17 vmodule='abcdefghijklmno=1' EXIT=137  err=malloc_consolidate(): invalid chunk size
+len=18 vmodule='abcdefghijklmnop=1' EXIT=137  err=malloc_consolidate(): invalid chunk size
+len=25 vmodule='shape_optimization_pass=3' EXIT=137  err=malloc_consolidate(): unaligned fastbin chunk detected
+
+=== 4 个 .so 各自 FLAGS_vmodule_buf 的实际内容 (GLOG_vmodule=shape_optimization_pass=3) ===
+libpaddle.so: &buf=0x7f7d46b91b60 _M_p=0x5606da925f20 size=25 data=b'shape_optimization_pass=3'
+libphi_core.so: &buf=0x7f7d22161940 _M_p=0x0 size=0 data=b''
+libphi_gpu.so: &buf=0x7f7d2f78f500 _M_p=0x0 size=0 data=b''
+libcinnapi.so: &buf=0x7f7d37c06980 _M_p=0x0 size=0 data=b''
+DONE
+
+=== 其他 GLOG_* 字符串 flag 的类推验证 ===
+--- GLOG_log_dir len=13 (SSO) ---
+EXIT=0  
+--- GLOG_log_dir len=33 (heap) ---
+EXIT=137  malloc_consolidate(): unaligned fastbin chunk detected
+--- GLOG_log_backtrace_at len=30 (heap) ---
+EXIT=137  malloc_consolidate(): unaligned fastbin chunk detected
+--- GLOG_v=3 (int32) ---
+EXIT=0  
+
+=== gdb: _GLOBAL__sub_I_vlog_is_on.cc 命中次数 ===
+breakpoint already hit 4 times  (4 locations: libpaddle/libphi_core/libphi_gpu/libcinnapi)
+
+=== 阴性对照：不开 vmodule 时堆本身是干净的 ===
+MALLOC_CHECK_=3, 不开 vmodule      -> EXIT=0, DONE, 无堆报错
+MALLOC_CHECK_=3, 开长 vmodule      -> HUNG,  DONE, malloc_consolidate(): unaligned fastbin
+(MALLOC_CHECK_ 在 glibc 2.34+ 已无 malloc hook，检测点未提前；此处只作阴性对照用)
+GLOG_v=1（大量 glog 输出，PrintProgram 静默）-> EXIT=0  ⇒ 与日志输出量无关，只与字符串 flag 有关
+GLIBC_TUNABLES=glibc.malloc.check=3 + 长 vmodule -> HUNG（同样无法提前检测点）
