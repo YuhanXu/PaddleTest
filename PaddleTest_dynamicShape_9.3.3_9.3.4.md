@@ -532,8 +532,31 @@ kernel 名（名字里就带谓词）与启动配置：
 min/max 离散度在 ±5% 内，差异远大于噪声。解读：分桶 schedule 确实随形状变化，但默认
 `policy=default` 的规则化分桶在大 numel group 上比确切尺寸调优慢 1.84× —— 这个差距正是
 `optimal`/`hybrid` 策略要填的。此处 static 一侧只是调优上界的**近似**，不等于
-`policy=search` 搜出的最优配置；真正的"调优前 vs 调优后"需另跑 search 生成
-`FileTileConfigDatabase` 后以 `optimal` 复测（注意空库会静默退回 `default`），本轮未做。
+实测搜索出的最优配置；真正的"调优前 vs 调优后"已由下方 (6) 闭环。
+
+**(6) 搜索式调优的读侧验证与收益实测（闭环 (5) 的缺口）**
+
+走 `FLAGS_tile_config_policy=optimal` 的读侧（从 tile_config 数据库读 bucket→tileConfig，
+替代 default 规则分桶），搜索以手工网格驱动（搜索器 `ScheduleConfigSearcher` 无产线
+调用方，等价复刻其穷举 `Search()`）。机制要点（详见测试步骤文档 T9）：
+
+- **Paddle wheel 自带预搜索库** `paddle/cinn_config/tile_config/`（A100-40GB / V100
+  等机型；`paddle/__init__.py:856` import 时把 `CINN_CONFIG_PATH` 指向它，会覆盖
+  用户先设的值，自定义库须在 import 之后用 `os.environ` 再覆盖）；本机 A100-80GB
+  无条目。
+- **空库 + policy=optimal 是硬崩溃不是静默回退**：`ir_analyzer.cc:107` 抛
+  "Didn't find blocks in expr" → SIGABRT（exit 134）；只有 policy 值不合法才静默
+  退回 default。
+- **控制实验证明读侧生效**：单桶 JSON（warpNum=8）使 kernel 8→4 个、谓词变为
+  自定义区间、全部 `__launch_bounds__(256)`=warpNum×32（default 为 1/1024 两档）。
+- **网格搜索（11 候选，G2@[1,72,88,88]，n=55）**：最优 = warpNum 8 +
+  spatialInnerNum 2（block 256，grid 1090）。
+- **收益**：同日同法复测 default G2 = 7252 ns，搜索最优 = 5651 ns ⇒ **加速
+  1.28×（−22.2%）**；与 static 上界差距从 1.84× 收窄到 1.43×。即使 block 同为
+  1024（warpNum=32，6647 ns）仍快于 default —— tileConfig 还改变了 grid/循环结构。
+- **双桶最终配置**（小 numel 桶 [1,1023] warpNum=1 + 大 numel 桶 [1024,INT32_MAX]
+  (8,2)）：一次编译 8 kernel，运行期选桶——[1,72,88,88] 命中大桶 5651 ns，
+  [1,72,1,1] 命中小桶 2380 ns（default 同 shape 2560 ns）。
 
 
 ### 步骤 8：执行并收集结果
@@ -635,6 +658,9 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 | `static_shape_probe.py` / `static_shape_control.log` | T8.2 静态 spec 负对照：8 kernel → 2、`COND__`=0 | 步骤 7 续 (4) |
 | `tune_perf_probe.py` / `tune_perf.log` | T8.3 static vs dyn 的 kernel 实测耗时（n=55） | 步骤 7 续 (5) |
 | `three_c_probe.py` / `three_c_run.log` / `three_c_src.cu` | 三个不同 C 的 picodet 同进程对照：codegen=6、kernel=24 | 步骤 8 |
+| `optimal_search.log` | T9 汇总：机制发现、控制实验、11 候选网格、收益 1.28× | 步骤 7 续 (6) |
+| `optimal_perf_probe.py` / `kern_agg.py` | T9 探针（import 后覆盖 CINN_CONFIG_PATH）+ nsys 聚合 | 步骤 7 续 (6) |
+| `optimal_tile_config.json` / `optimal_src.cu` | T9 双桶最终配置 + 生成的 CUDA 源码（8 kernel） | 步骤 7 续 (6) |
 
 连同步骤 1 的环境自检输出与 5 张截图，共同构成本指标的证据链。
 观测编译行为时用步骤 7.4 的 codegen 事件计数（`extern "C" {` 块数）配合

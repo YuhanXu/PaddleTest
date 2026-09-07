@@ -1,0 +1,2 @@
+{"bucketInfo":{"dimension":[{"lowerBound":1,"upperBound":1023,"iterType":"S","isDynamic":true}]},"tileConfig":{"warpNum":"1","treeReduceNum":"1","spatialInnerNum":"1"}}
+{"bucketInfo":{"dimension":[{"lowerBound":1024,"upperBound":2147483647,"iterType":"S","isDynamic":true}]},"tileConfig":{"warpNum":"8","treeReduceNum":"1","spatialInnerNum":"2"}}

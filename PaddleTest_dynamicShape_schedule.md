@@ -520,16 +520,44 @@ N=1/2/4 早已被前面的整网 conv 走过、cuDNN 缓存已热，测出来是
 `eager_baseline_probe.py` + `eager_baseline.log`、`perop_probe.py` + `perop.log`、
 `conv_shape_cost_probe.py` + `conv_shape_cost.log`。
 
+### 9.8 搜索式调优的读侧验证与收益实测（2026-09-07）
+
+§9.7 / T8.3 量化了 `policy=default` 与 static 确切尺寸的差距（group2 1.84×）并声明
+"调优前 vs 调优后"未测。本节闭环该缺口（完整步骤与数据见测试步骤文档 T9）：
+
+- **Paddle wheel 自带预搜索库**：`paddle/cinn_config/tile_config/`（A100-40GB / V100
+  等机型 JSON），`paddle/__init__.py:856` import 时设 `CINN_CONFIG_PATH` 指向它，
+  **会覆盖用户先设的值**，自定义库须 import 后用 `os.environ` 再覆盖。本机
+  A100-80GB 无条目，`policy=optimal` + 空库 = 硬崩溃（`ir_analyzer.cc:107` 抛
+  "Didn't find blocks in expr" → SIGABRT），**不是静默回退**（此前文档说法已修正）。
+- **控制实验**：自定义单桶 JSON（warpNum=8）→ kernel 8→4 个、谓词变为自定义区间、
+  全部 `__launch_bounds__(256)` = warpNum×32 ⇒ 数据库 tileConfig 确实进入调度。
+- **手工网格 11 候选**（搜索器 `ScheduleConfigSearcher` 无产线调用方，等价复刻
+  穷举）：最优 warpNum=8 + spatialInnerNum=2（block 256 / grid 1090）。
+- **收益（G2@[1,72,88,88]，n=55，nsys）**：default 7252 ns → 搜索最优 5651 ns，
+  **1.28×（−22.2%）**；与 static 上界差距 1.84× → 1.43×；即使 block 同为 1024
+  仍快于 default（tileConfig 还改变 grid/循环结构）。
+- **双桶最终配置**（小桶 [1,1023] warpNum=1 + 大桶 (8,2)）：一次编译 8 kernel、
+  运行期选桶（[1,72,88,88]→5651 ns，[1,72,1,1]→2380 ns，均优于 default）。
+  证据：`optimal_search.log` 等 5 个文件（evidence_dynamicShape/）。
+
+含义：指标 3 的功能主张（按形状区间分桶 + 运行期选桶）不变；性能主张现也有实测
+支撑——`policy=optimal` 读落库配置在运行点上比 default 快 1.28×，但默认关闭、
+空库崩溃属可用性风险（报 issue 的候选）。
+
 ## 10. CINN 的"按形状自动调优"到底发生在哪里
 
 "根据不同张量形状自动调优"这句指标落在**编译期**。对应的代码路径（已由 §9.4 的实测产物验证）：
 
 - **符号化动态 shape**：带 `-1` 的 InputSpec 进入 PIR 后，动态维以符号变量（`S0`、`S1`…）表示，
   CINN 生成的 kernel 以这些符号为参数，因此一份 kernel 对所有满足约束的具体 shape 通用。
-- **编译期 tile 配置搜索（自动调优的实体）**：group_schedule 通过 `config_searcher` 在
-  `paddle/cinn/ir/group_schedule/config/tile_config/` 下按目标架构选择/搜索 tile_config
-  （A100 对应 `NVGPU_NVIDIA_A100...` 目录，含 `Sstatic_Rdynamic` / `Sdynamic_Rdynamic` 等 JSON 配置）。
-  这一步依据**形状特征（静态维/动态维、reduce 维是否动态）**决定分块与并行策略——这就是"根据形状调优"的实体，
+- **编译期 tile 配置（自动调优的实体）**：分桶与逐桶 tile 由
+  `FLAGS_tile_config_policy` 决定——`default`（默认）走规则化分桶（§9.4(c) 的
+  4 桶即其产物）；`optimal`/`hybrid` 从 `FileTileConfigDatabase`（wheel 自带的
+  `paddle/cinn_config/tile_config/<arch>_<device>/...json`，§9.8）读**已调优落盘**
+  的 bucket→tileConfig。搜索器 `ScheduleConfigSearcher` 无产线调用方，落库配置
+  需离线搜索产生（§9.8 用手工网格等价复刻）。这一步依据**形状特征（静态维/动态维、
+  reduce 维是否动态、numel 区间）**决定分块与并行策略——这就是"根据形状调优"的实体，
   它在**编译时**完成一次，产物随符号 kernel 固化。
 - 因此指标 3 的两半应这样表述：
   1. 支持可变形状输入 —— 运行期能力，已由 70/70 数值一致直接证明；

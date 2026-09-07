@@ -1,0 +1,56 @@
+# E5 搜索式调优（tile_config_policy=optimal）读侧验证、网格搜索与收益测量
+# A100/SM80，case = picodet_l_640_coco/SIR_17.py，nsys cuda_gpu_trace，n=55/kernel
+# 探针 optimal_perf_probe.py；解析 kern_agg.py；数据库 JSON 见 optimal_tile_config.json
+# 对照基线：default 复测（同日）+ tune_perf.log（2026-09-05）
+
+===== 机制发现（T9.0）=====
+1. Paddle wheel 自带预搜索 tile 配置库：paddle/cinn_config/tile_config/
+   （A100-SXM4-40GB / V100 等机型），paddle/__init__.py:856 在 import 时把
+   CINN_CONFIG_PATH 指向它（os.environ 直接赋值，会覆盖用户先设的值）。
+2. 本机 A100-SXM4-80GB 无条目 => policy=optimal 时 GetConfigs 返回空 =>
+   0 个 bucket => 下游 ir_analyzer.cc:107 抛 "Didn't find blocks in expr"
+   => parallel_run 内 std::terminate，进程 SIGABRT（exit 134）。
+   结论：空库不是"静默退回 default"，是硬崩溃（文档此前说法已修正）。
+3. 自定义库须在 import paddle 之后用 os.environ 覆盖 CINN_CONFIG_PATH。
+4. 搜索器 ScheduleConfigSearcher（穷举候选+实测打分）无任何产线调用方，
+   "搜索"需自行驱动；本实验用手工网格（6+3+2 个候选）替代。
+
+===== 控制实验（T9.1，读侧验证）=====
+单桶 S[1, 2147483647] warpNum=8，policy=optimal：
+- exit=0，日志两 group 均出现 "Enter policy branch: optimal"（vmodule sched*=3）
+- 生成 kernel 从 default 的 8 个变为 4 个（1 桶 x 2 索引变体 x 2 group）
+- 谓词变为自定义区间：S0*18 GE1 且 LE2147483647（G1）/ S0*S1*S2*72 同型（G2）
+- 所有 kernel __launch_bounds__(256) = warpNum(8) x 32，default 为 1/1024 两档
+=> 数据库 tileConfig 确实进入调度，读侧生效。
+
+===== 网格搜索（T9.2，运行 shape [1,72,88,88]，G2=557568 元素）=====
+候选 = 单桶全区间 [1,2147483647]，field               G2 mean ns
+warpNum=1  spatialInnerNum=1 (block=32)               16987
+warpNum=2  spatialInnerNum=1 (block=64)                9592
+warpNum=4  spatialInnerNum=1 (block=128)               6174
+warpNum=8  spatialInnerNum=1 (block=256)               6043
+warpNum=16 spatialInnerNum=1 (block=512)               6157
+warpNum=32 spatialInnerNum=1 (block=1024)              6647
+warpNum=4  spatialInnerNum=2 (block=128)               5746
+warpNum=8  spatialInnerNum=2 (block=256)               5648   <-- 最优
+warpNum=16 spatialInnerNum=2 (block=512)               5885
+warpNum=8  spatialInnerNum=4 (block=256)               6280
+warpNum=8  spatialInnerNum=8 (block=256)               6765
+G1（18 元素）各候选均 ~2040-2160ns（kernel 启动开销量级，无实质差异）。
+
+===== 收益对比（T9.3，同日同法）=====
+default 复测（policy=default，tune_perf_probe.py dyn）：G1 2020ns / G2 7252ns
+  （与 tune_perf.log 2026-09-05 的 2019/7259 一致，方法可复现）
+optimal 最优 (warpNum=8, spatialInnerNum=2)：           G2 5651ns
+  => 相对 default 加速 7252/5651 = 1.28x（耗时 -22.2%）
+  => 与 static 确切尺寸上界(3951ns)的差距从 1.84x 收窄到 1.43x
+即使同 block=1024（warpNum=32, 6647ns）仍快于 default GE1024 桶（7252ns）：
+tileConfig 改变的不仅是块大小，还有循环/向量化结构（grid=545 vs 137）。
+
+===== 双桶最终配置（按区间分桶调优，optimal_tile_config.json）=====
+S[1,1023]         warpNum=1  spatialInnerNum=1
+S[1024,2147483647] warpNum=8  spatialInnerNum=2
+- 一次编译生成 8 kernel（2 桶 x 2 索引变体 x 2 group），运行期按谓词选桶
+- [1,72,88,88]：G2 命中大桶 grid=1090x1x1 block=256x1x1 5651ns
+- [1,72,1,1]：  G2 命中小桶 grid=3x1x1   block=32x1x1  2380ns（default 同 shape 2560ns）
+=> 搜索式调优的完整形态：按运行点实测选配置、按区间落库、一次编译服务全部 shape。

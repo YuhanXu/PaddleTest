@@ -595,12 +595,111 @@ min/max 离散度均在 ±5% 内（如 group2 dyn 7200~7360 ns），差异远大
 **判定**：本步**不设通过/不通过门限**，只作为代价量化如实记录。可得的结论是：
 分桶 schedule 确实随形状变化（T8.1），但默认 `policy=default` 的规则化分桶在大 numel
 group 上比确切尺寸调优慢 1.84×，这个差距正是 `optimal`/`hybrid` 策略（T8.0）要填的。
-若验收要求"调优后优于调优前"，需另跑 `FLAGS_tile_config_policy=search` 生成
-`FileTileConfigDatabase` 再以 `optimal` 复测 —— 注意空库会因
-`tile_config_data_.count(policy_)==0` 静默退回 `default`，且 search 分支每 kernel
-重放 25 次，耗时显著。本轮未做。
+若验收要求"调优后优于调优前"，需另以 `policy=optimal` 读取 tile_config 数据库复测
+（**注意**：库中无匹配条目时会因 0 bucket 硬崩溃而非静默回退，policy 值不合法才
+静默退回 default，见 T9.0-2）。已由 T9 闭环：实测加速 1.28×。
 
 **留存**：`tune_perf.log`、`tune_perf_probe.py`。
+
+## T9 搜索式调优的读侧验证、手工网格与收益实测（闭环 T8.3 遗留缺口）
+
+T8.3 量化了 `policy=default` 规则分桶与 static 确切尺寸的差距（1.84×）并声明
+"真正的调优前 vs 调优后需另跑 search"。本步补上这个闭环：走 `policy=optimal`
+的**读侧**（从 tile_config 数据库读取 bucket→tileConfig），搜索用手工网格驱动
+（搜索器 `ScheduleConfigSearcher` 无产线调用方，等价复刻其 `Search()` 行为）。
+
+### T9.0 机制澄清（源码 + 实测，无需复跑）
+
+1. **Paddle wheel 自带预搜索 tile 配置库**：`paddle/cinn_config/tile_config/`
+   （含 A100-SXM4-40GB、V100 等机型的 JSON），`paddle/__init__.py:856-858` 在
+   import 时把 `CINN_CONFIG_PATH` 指向它。**`os.environ` 直接赋值会覆盖用户
+   在 import 之前 export 的同名变量**，自定义数据库必须在 `import paddle` 之后
+   用 `os.environ["CINN_CONFIG_PATH"] = ...` 再覆盖一次（putenv 对后续 C++
+   `getenv` 可见）。本机 A100-SXM4-80GB 在内置库中**无条目**。
+2. **空库不是静默回退，是硬崩溃**（修正 T8.3 的说法）：policy=optimal 且库中
+   无匹配条目时 `GetConfigs` 返回空 map ⇒ 0 个 bucket ⇒ 下游
+   `ir_analyzer.cc:107` 抛 `Didn't find blocks in expr` ⇒ `parallel_run` 内
+   `std::terminate`，进程 SIGABRT（exit 134，gdb/vmodule 取证）。
+   真正会静默退回 default 的是 **policy 值不合法**（如拼错），
+   走 `schedule_config_manager.cc` 的 `tile_config_data_.count(policy_)==0` 分支。
+3. 数据库路径由 `file_database.cc` 的 `IterSpaceTypeToDir` 推导：
+   `<CINN_CONFIG_PATH>/tile_config/<arch>_<device>/<S[_R]_EREBE>/<Sdynamic[_R*]>.json`
+   （本 case 两 group 均为纯空间动态：`S_EREBE/Sdynamic.json`）。
+   `FLAGS_cinn_tile_config_filename_label` 非空时会**整体取代** CINN_CONFIG_PATH。
+4. JSON 行格式与内置库一致（proto3 JSON，int64 字段是**字符串**）：
+   `{"bucketInfo":{"dimension":[{"lowerBound":1,"upperBound":2147483647,"iterType":"S","isDynamic":true}]},"tileConfig":{"warpNum":"8","treeReduceNum":"1","spatialInnerNum":"1"}}`
+   `upperBound=2147483647`（INT32_MAX）在 `MakeBucketPredicate` 中被特判为无上界。
+5. policy 可取值只有 `default` / `optimal` / `hybrid` 有效；`search` 不是
+   ExtractConfigs 的合法分支（`InitScheduleConfig` 只对 optimal/hybrid 注册
+   FileTileConfigDatabase），但 `cinn_jit_instruction.cc:121` 会让
+   `policy=="search"` 触发逐 kernel 计时（cudaGraph×25），不产生任何配置。
+
+### T9.1 控制实验（读侧生效验证）
+
+环境：`export FLAGS_tile_config_policy=optimal`，自定义库
+`/tmp/t9/db/tile_config/NVGPU_NVIDIA_A100_SXM4_80GB/S_EREBE/Sdynamic.json`
+写单桶 `S[1, 2147483647] warpNum=8`，跑 `optimal_perf_probe.py`：
+
+- exit=0；`GLOG_vmodule='sched*=3'` 下两 group 均打印
+  `Enter policy branch: optimal`（schedule_config_manager.cc:53）
+- 生成 kernel 从 default 的 **8 个变为 4 个**（1 桶 × 2 索引变体 × 2 group）
+- 谓词变为自定义区间（`S0*18 GE1 且 LE2147483647`），不再是默认的 1023/1024 分界
+- 全部 kernel `__launch_bounds__(256)` = warpNum(8)×32（default 为 1/1024 两档）
+
+⇒ 数据库中的 tileConfig 确实进入调度。**读侧验证通过。**
+
+### T9.2 手工网格搜索（运行 shape [1,72,88,88]，G2=557568 元素，n=55）
+
+探针 `optimal_perf_probe.py`（与 tune_perf_probe.py 的 dyn 模式同构：5 warmup +
+50 iters，nsys 采 GPU trace，`kern_agg.py` 聚合）。候选为单桶全区间
+`S[1, 2147483647]`，逐个改写 JSON 后整进程重跑：
+
+| warpNum | spatialInnerNum | block | G2 mean (ns) |
+| ------- | -------------- | ----: | -----------: |
+| 1 | 1 | 32 | 16987 |
+| 2 | 1 | 64 | 9592 |
+| 4 | 1 | 128 | 6174 |
+| 8 | 1 | 256 | 6043 |
+| 16 | 1 | 512 | 6157 |
+| 32 | 1 | 1024 | 6647 |
+| 4 | 2 | 128 | 5746 |
+| **8** | **2** | **256** | **5648（最优）** |
+| 16 | 2 | 512 | 5885 |
+| 8 | 4 | 256 | 6280 |
+| 8 | 8 | 256 | 6765 |
+
+G1（18 元素）各候选均 2040~2160 ns，kernel 启动开销量级，无实质差异。
+min/max 离散 ±5% 内，差异远大于噪声。
+
+### T9.3 收益对比与双桶最终配置
+
+同日同法复测 default 基线：G1 2020 / **G2 7252 ns**（与 T8.3 的 2019/7259 一致，
+方法可复现）。optimal 最优 (warpNum=8, spatialInnerNum=2)：
+
+- **G2 5651 ns ⇒ 相对 default 加速 1.28×（耗时 −22.2%）**
+- 与 static 上界（3951 ns）的差距从 1.84× 收窄到 **1.43×**
+- 即使同 block=1024（warpNum=32，6647 ns）仍快于 default 的 GE1024 桶：
+  tileConfig 改变的不只是块大小，还有 grid/循环结构（545 vs 137 个 block）
+
+双桶最终配置（`optimal_tile_config.json`，即"按区间分桶调优"的完整形态）：
+
+```text
+S[1,1023]           warpNum=1, spatialInnerNum=1   # 小 numel 轻量桶
+S[1024,2147483647]  warpNum=8, spatialInnerNum=2   # 大 numel 搜索最优桶
+```
+
+- 一次编译生成 8 kernel（2 桶 × 2 索引变体 × 2 group），运行期按谓词选桶
+- `[1,72,88,88]`：G2 命中大桶 grid=1090×256，5651 ns
+- `[1,72,1,1]`：G2 命中小桶 grid=3×32，2380 ns（default 同 shape 为 2560 ns）
+
+**判定**：T8.3 声明的缺口（"调优前 vs 调优后"）已闭环——在运行点
+[1,72,88,88] 上，optimal 相对 default 实测加速 1.28×，且仍保留"一次编译
+服务全部 shape"（codegen=2，与 shape 无关）。搜索由手工网格完成（11 个候选），
+等价于搜索器的穷举 `Search()`，因为产线未给搜索器接线。
+
+**留存**：`optimal_search.log`（汇总）、`optimal_perf_probe.py`（探针）、
+`optimal_tile_config.json`（最终双桶配置）、`optimal_src.cu`（双桶生成的
+CUDA 源码）、`kern_agg.py`（nsys trace 聚合脚本）。
 
 
 
@@ -634,6 +733,10 @@ group 上比确切尺寸调优慢 1.84×，这个差距正是 `optimal`/`hybrid`
 | `tune_perf.log` | T8.3 | static vs dyn 的 kernel 实测耗时（n=55） |
 | `static_shape_probe.py` / `tune_perf_probe.py` | 驱动脚本 | T8.2 / T8.3 复现用 |
 | `three_c_probe.py` / `three_c_run.log` / `three_c_src.cu` | T6.2 附加 | 三个不同 C 的 picodet 同进程对照：codegen=6、kernel=24，正面复核"不同 C 不复用编译" |
+| `optimal_search.log` | T9 | 搜索式调优汇总：机制发现、控制实验、11 候选网格、收益对比 |
+| `optimal_perf_probe.py` / `kern_agg.py` | 驱动脚本 | T9 探针（import 后覆盖 CINN_CONFIG_PATH）+ nsys trace 聚合 |
+| `optimal_tile_config.json` | T9 | 双桶最终配置（小桶轻量 + 大桶搜索最优） |
+| `optimal_src.cu` | T9 | 双桶生成的 CUDA 源码（8 kernel，谓词含 GE1024/LE1023 分界） |
 | 图 9.3.3-1 ~ -5 | T1/T3/T4/T5 | 截图 |
 
 ### 目录组织与文件依赖
@@ -708,7 +811,7 @@ T8.3（调优代价量化）**不作为通过门限**，作为附带数据如实
 | 触发方式 | T8.0（`FLAGS_tile_config_policy` → `schedule_config_manager.cc` 的三条分支） |
 | 候选配置 | 判据 4-c（T5 的 4 桶表：numel 区间 × 索引位宽的叉积） |
 | 选择结果 | 判据 4-e（T8.1 三 shape 命中不同桶，grid/block/reg 实测不同） |
-| 调优前后性能对比 | T8.3（static 6094 ns vs dyn 9278 ns，group2 差 1.84×） |
+| 调优前后性能对比 | T8.3（泛化代价：static 6094 ns vs dyn 9278 ns，1.84×）+ **T9（搜索收益：default 7252 ns vs optimal 5651 ns，1.28×）** |
 | 分桶归因于动态 shape | 判据 4-f（T8.2 静态负对照） |
 
 配合判据 1（一次编译的符号 kernel 能正确服务全部动态 shape）与判据 4-d（分桶 kernel 在
@@ -716,8 +819,9 @@ T8.3（调优代价量化）**不作为通过门限**，作为附带数据如实
 **不要求**运行期观测到 per-shape 重编译事件 —— 符号化编译下本就不应发生。
 
 **口径声明（必须写进报告）**：本指标下的"自动调优"取"按形状区间分桶的规则化 schedule
-特化"之义。搜索式 autotuner 需显式设 `FLAGS_tile_config_policy=optimal|hybrid|search`
-才启用，默认关闭；`FLAGS_enable_auto_tuner` 是无调用点的死 flag。详见 T8.0。
+特化"之义。搜索式 autotuner 需显式设 `FLAGS_tile_config_policy=optimal|hybrid` 读取
+tile_config 数据库才启用（T9 已实测其读侧与收益），默认关闭；`search` 不是合法
+policy 分支（见 T9.0-5）；`FLAGS_enable_auto_tuner` 是无调用点的死 flag。详见 T8.0/T9.0。
 
 ### 已知局限（在报告中如实声明）
 
@@ -730,8 +834,12 @@ T8.3（调优代价量化）**不作为通过门限**，作为附带数据如实
    不可达（两条件互斥）。这反映候选由规则生成、未做可达性剪枝，不影响判据成立，但说明
    默认策略不是搜索式调优。
 4. T8.3 的 static 一侧是"确切尺寸下的规则化 tile"，作为调优上界的**近似**；它不等于
-   `policy=search` 实测搜索出的最优配置。真正的"调优前 vs 调优后"需按 T8.3 末尾的方法
-   另跑，本轮未做。
+   实测搜索出的最优配置。真正的"调优前 vs 调优后"已由 T9 闭环（default 7252 ns vs
+   搜索最优 5651 ns，1.28×）；搜索由手工网格驱动（11 个候选），因产线未给搜索器
+   `ScheduleConfigSearcher` 接线——这本身是如实声明的一部分。
+5. T9 的收益在单一运行点 [1,72,88,88] 上测得；更完备的搜索应按运行 shape 分布
+   分桶分别选优（双桶配置已示范该形态）。搜索式调优默认关闭（policy=default），
+   且空库 + policy=optimal 会硬崩溃（T9.0-2），属可用性风险。
 
 ## 4 结果记录表模板
 
