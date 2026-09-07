@@ -1,0 +1,9 @@
+W0831 07:48:45.759172 11343 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+I0831 07:48:45.863718 11343 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0831 07:48:45.955544 11428 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/three_c/src.cu"
+I0831 07:48:50.714318 11343 pir_interpreter.cc:1605] New Executor is Running ...
+I0831 07:48:50.714885 11343 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+CASE picodet_legacy_model_picodet_l_640_coco/SIR_17.py shape=[1, 72, 88, 88]   5228.63 ms
+CASE picodet_legacy_model_picodet_m_320_coco/SIR_17.py shape=[1, 56, 48, 48]   4941.44 ms
+CASE picodet_legacy_model_picodet_s_320_coco/SIR_17.py shape=[1, 44, 32, 32]   4949.55 ms
+DONE

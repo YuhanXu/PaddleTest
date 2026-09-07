@@ -83,7 +83,8 @@
    - 用 `create_inputspec()`（`(-1,72,-1,-1)`）作为编译期 spec，`backend="CINN"`。
    - 循环 4.1 矩阵中的每个 shape：`paddle.rand(shape)` → 前向 → 与 eager 对比。
 2. 采集编译期证据：
-   - **主证据（中间 IR）**：`GLOG_vmodule=shape_optimization_pass=3` 打印带符号标注的 PIR
+   - **主证据（中间 IR）**：`GLOG_vmodule='shape_o*=3'`（短 glob，长写法会触发 glog
+     退出期挂死，见 §9.4(d) 第 3 项）打印带符号标注的 PIR
      （`ShapeOptimizationPass` 的 `PrintHook`），并用 `FLAGS_cinn_source_code_save_path` 导出
      生成的 CUDA 源码，确认动态维为符号形参而非固化常量（**不要用 `FLAGS_cinn_dump_group_*`，
      本 build 中是死 flag，见 §9.4(d)**）。
@@ -236,8 +237,8 @@ LOG_FIRST_N(INFO, 1) << "Compiling subgraph with CINN backend ...";
 
 **正确的观测方式**（已实测走通，产物见 §9.4）：
 
-- 打印中间 IR 验证 shape 的符号化表示：`GLOG_vmodule=shape_optimization_pass=3` 触发
-  `ShapeOptimizationPass` 的 `PrintProgram` + `PrintHook`
+- 打印中间 IR 验证 shape 的符号化表示：`GLOG_vmodule='shape_o*=3'`（短 glob，见
+  §9.4(d) 第 3 项）触发 `ShapeOptimizationPass` 的 `PrintProgram` + `PrintHook`
   （`paddle/pir/src/dialect/shape/transforms/shape_optimization_pass.cc:31,54-64`），
   符号名 `S0`/`S1`… 由 `GetNextSymName()` 生成（`paddle/pir/src/dialect/shape/utils/shape_analysis.cc:113-114`）。
 - 导出生成的 CUDA 源码验证 kernel 是否形状泛化：`FLAGS_cinn_source_code_save_path`
@@ -260,8 +261,9 @@ LOG_FIRST_N(INFO, 1) << "Compiling subgraph with CINN backend ...";
 采集用最小驱动 `evidence_dynamicShape/ir_probe.py`（不做 fd 重定向，否则 glog 被脚本的
 `_CaptureStderrFd` 吞掉），被测 case 为 `picodet_l_640/SIR_17.py`。
 
-**(a) PIR 层：动态维是符号。** `GLOG_vmodule=shape_optimization_pass=3`（不要用全局 `GLOG_v=3`），
-`[ShapeDialect]ShapeOptimizationPass Program` 段中：
+**(a) PIR 层：动态维是符号。** `GLOG_vmodule` 只放开 `shape_optimization_pass`
+（不要用全局 `GLOG_v=3`；实际采集用通配短写法 `'shape_o*=3'`——长写法在本 build
+会触发退出期挂死，见 (d) 第 3 项），`[ShapeDialect]ShapeOptimizationPass Program` 段中：
 
 ```
 (%4) = "pd_op.data" () {... shape:[-1,72,-1,-1] ...} : () -> tensor<-1x72x-1x-1xf32>
@@ -308,7 +310,7 @@ __global__ void __launch_bounds__(1) fn_..._kernel(
 `predicate2funcs`（同文件 242-245）→ codegen 把谓词写入函数名 + 生成 host 侧 switch
 （`codegen_device_util.cc:100-115` 的 `CreateSwitchFunction`）。
 
-**(d) 采集过程中发现的两个 build 问题（建议单独报 issue）：**
+**(d) 采集过程中发现的三个 build 问题（建议单独报 issue）：**
 
 1. `FLAGS_logging_pir_py_code_dump_symbolic_dims=1` 导致崩溃：
    `SystemError: (Fatal) The input data pointer is null. (paddle/pir/src/core/storage_manager.cc:85)`，
@@ -318,6 +320,17 @@ __global__ void __launch_bounds__(1) fn_..._kernel(
 2. `FLAGS_cinn_dump_group_lowered_func` / `_source_code` / `_ptx` 是死 flag：
    消费函数 `CompilationInfoDumper::Dump*ByGroupIndex` 定义在
    `paddle/cinn/backends/compiler.cc:104-190`，但全 `paddle/cinn` 目录下**无任何调用点**。
+3. `GLOG_*` **字符串型**环境变量（`vmodule` / `log_dir` / `log_backtrace_at`）值长度
+   >= 16 字节时，进程在打完全部输出后的退出析构期触发 glibc 堆校验并挂死。根因：
+   `libglog.a` 被静态链进 4 个 .so（`base/libpaddle.so` / `libs/libphi_core.so` /
+   `libs/libphi_gpu.so` / `libs/libcinnapi.so`）且 glog 全局符号导出，ELF 符号插入把
+   4 份 `fLS::FLAGS_vmodule_buf` 坍缩成 1 个实例，但 4 个静态初始化器各构造一次、
+   各注册一次 `__cxa_atexit` ⇒ 退出期同一堆指针被 free 4 次；<= 15 字节走 SSO
+   （无堆缓冲）故无害，分界线实测正好在 15/16 字节。与 CINN 无关
+   （`import paddle` 一行加长 vmodule 即复现）。**规避**：vmodule 用通配短写法
+   （`'shape_o*=3'`），产物与长写法逐字节相同。完整取证：
+   `glog_multilink_evidence.log` 及配套 `glog_multilink_probe.py` / `glog_sso_matrix.sh`
+   （SSO 分界线矩阵、ctypes 读 4 份 buf、gdb 4 次初始化 hit、ASAN double-free）。
 
 **(e) 补充实测数据，独立佐证 §9.2 的结论。** 本轮 10 case 全量重跑中，S0 的 `cinn_ms` 与
 `compiles` 的对照：

@@ -1,0 +1,15 @@
+# E4 调优前后性能对比（nsys cuda_gpu_trace，A100/SM80，2026-09-05T06:10:41Z）
+# 同 case、同运行 shape [1,72,88,88]、同 55 次前向（5 warmup + 50 iters）
+# static = input_spec 全静态（尺寸已知，按确切 numel 定 tile）
+# dyn    = input_spec 含 -1（尺寸未知，按 numel 区间分桶，运行期选桶）
+
+----- static -----
+G1 grid=1x1x1 block=32           n=55  mean=  2143ns min=  2112 max=  2432
+G2 grid=8x72x1 block=256         n=55  mean=  3951ns min=  3776 max=  4128
+----- dyn -----
+G1 grid=18x1x1 block=1           n=55  mean=  2019ns min=  1984 max=  2304
+G2 grid=137x1x1 block=1024       n=55  mean=  7259ns min=  7200 max=  7360
+
+结论：G2（557568 元素）static 3951ns vs dyn 7259ns => 分桶 schedule 慢 1.84x；
+      G1（18 元素）static 2143ns vs dyn 2019ns => 均在 kernel 启动开销量级，无实质差异；
+      两 group 合计 static 6094ns vs dyn 9278ns => 1.52x。

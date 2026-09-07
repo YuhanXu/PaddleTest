@@ -20,7 +20,7 @@
 
 ## 2 执行总览
 
-按下表顺序执行。T1 不通过不得继续；T3 为功能主项，T4~T6 为证据采集项。
+按下表顺序执行。T1 不通过不得继续；T3 为功能主项，T4~T6、T8 为证据采集项。
 
 | 编号 | 步骤 | 目的 | 对应判据 |
 |------|------|------|---------|
@@ -30,7 +30,11 @@
 | T4 | 采集符号化 PIR | 证明动态维在 IR 中是符号 | 判据 4-a |
 | T5 | 采集 CINN 生成的 CUDA 源码 | 证明符号进入 kernel、存在形状分桶 | 判据 4-b/4-c |
 | T6 | 编译次数计数与关缓存对照 | 证明一次编译服务全部 shape | 判据 4-d |
+| T8 | 自动调优的触发/选择/代价 | 补齐运行期选桶、静态负对照、性能对比 | 判据 4-e/4-f |
 | T7 | 归档与截图 | 形成可复核的证据链 | 交付 |
+
+> T8 在文档中排在 T6 之后、T7（归档）之前执行；编号沿用新增顺序，未重排既有编号，
+> 以免和已发出的报告、截图编号对不上。
 
 ---
 
@@ -446,6 +450,163 @@ python $E/conv_shape_cost_probe.py         > $E/conv_shape_cost.log 2>&1
 
 ---
 
+## T8 自动调优的触发、选择与代价（补评审意见）
+
+T5 只证明了"编译产物里存在多份按形状分桶的 schedule"。评审指出这不足以证明"根据不同
+张量形状自动调优"，还需要**触发方式、候选配置、选择结果、调优前后性能对比**四项。
+T8 三步把后三项补齐，触发方式在本节开头以源码位置给出。
+
+### T8.0 触发方式（源码定位，无需执行）
+
+| 环节 | 位置 | 说明 |
+|------|------|------|
+| 策略开关 | `paddle/cinn/runtime/flags.cc:53` | `FLAGS_tile_config_policy`，默认 `"default"` |
+| 策略分发 | `paddle/cinn/ir/group_schedule/config/schedule_config_manager.cc:34-72` | `default` → 规则生成 `BuildScheduleConfig(group_info, target)`；`optimal`/`hybrid` → 从 `FileTileConfigDatabase` 读已调优配置；`search` → 实测搜索 |
+| 搜索器 | `paddle/cinn/ir/group_schedule/search/config_searcher.cc` | 候选枚举 + 实测打分 |
+| 搜索期计时 | `paddle/fluid/framework/new_executor/instruction/cinn_jit_instruction.cc:121-152` | `policy=="search"` 时切到 CUDA Graph 重放 25 次计时 |
+
+**必须如实声明的口径问题**：`FLAGS_enable_auto_tuner`（`flags.cc:243`）在整个 `paddle/`
+里**只有定义、没有任何调用点**，是死 flag。因此默认配置（`policy=default`）下的"自动调优"
+= **按形状区间分桶的规则化 schedule 特化**，不是 profiling 搜索式 autotuner。若验收方把
+"自动调优"定义为后者，须显式设 `FLAGS_tile_config_policy=optimal|hybrid|search` 才走那条路。
+本轮验收按前者取证，并在报告中写明该定义。
+
+### T8.1 运行期分桶命中（选择结果）
+
+**操作**
+
+```bash
+cd /work/PaddleTest/framework/e2e/PaddleLT_new
+CASE=layercase/sublayer1000/Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
+mkdir -p /tmp/e1
+
+# ir_probe.py 的 SHAPES 改为单一 shape 后分三次跑；三个 shape 故意跨过谓词分界线：
+#   group1 谓词 = S0*18       → S0=1 得 18（<=1023）、S0=64 得 1152（>=1024）
+#   group2 谓词 = S0*S1*S2*72 → 1x1 空间得 72（<=1023）、88x88 得 557568（>=1024）
+for SH in 1x72x1x1 1x72x88x88 64x72x88x88; do
+  FLAGS_cinn_source_code_save_path=/tmp/e1/src_$SH.cu \
+  nsys profile -t cuda -o /tmp/e1/rep_$SH --force-overwrite=true \
+  python ../../../evidence_dynamicShape/ir_probe.py "$CASE" > /tmp/e1/run_$SH.log 2>&1
+  echo "$SH exit=$?"
+done
+
+md5sum /tmp/e1/src_*.cu                      # 三次编译产物是否一致
+for SH in 1x72x1x1 1x72x88x88 64x72x88x88; do
+  nsys stats --report cuda_gpu_trace --format csv /tmp/e1/rep_$SH.nsys-rep 2>/dev/null \
+    | grep fn_reshape | awk -F',' '{print $4"x"$5"x"$6, $7, $NF}' | sort -u
+done
+```
+
+**实测结果**（A100/SM80，`bucket_dispatch.log`）
+
+| 运行 shape | group1 谓词 `S0*18` | 命中桶 | 实测 grid/block/reg | group2 谓词 `S0*S1*S2*72` | 命中桶 | 实测 grid/block/reg |
+|---|---|---|---|---|---|---|
+| `[1,72,1,1]` | 18 | `LE1023` | 18×1×1 / 1 / 16 | 72 | `LE1023` | 72×1×1 / 1 / 16 |
+| `[1,72,88,88]` | 18 | `LE1023` | 18×1×1 / 1 / 16 | 557568 | **`GE1024`** | 137×1×1 / 1024 / 22 |
+| `[64,72,88,88]` | 1152 | **`GE1024`** | 1×1×1 / 1024 / 19 | 35684352 | `GE1024` | 8713×1×1 / 1024 / 22 |
+
+三次运行的 `src_*.cu` md5 **完全相同**（`09c5ab1c800755b6f644f5074f67b1c4`，与归档的
+`cinn_source.cu` 一致）⇒ 同一份编译产物内含全部 4 桶，shape 只决定**启动哪一个**。
+
+**判定**：三点同时成立即通过 ——
+(a) 两个 group 各自按**自己的**谓词独立选桶（group1 在第 2→3 行翻转，group2 在第 1→2 行翻转）；
+(b) 命中的 kernel 名字里的谓词与实际 shape 代入后的算术结果一致；
+(c) 不同桶的 `grid/block/寄存器数`实测不同 ⇒ 是不同的已编译 schedule，不是同一 kernel 换启动参数。
+
+**留存**：`bucket_dispatch.log`。
+
+### T8.2 静态 shape 负对照（证明分桶是动态 shape 特有产物）
+
+**操作**
+
+```bash
+cd /work/PaddleTest/framework/e2e/PaddleLT_new
+CASE=layercase/sublayer1000/Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
+mkdir -p /tmp/e2
+
+# static_shape_probe.py 与 ir_probe.py 唯一差别：input_spec 用全静态 shape，不调
+# create_inputspec()（其 shape 含 -1）
+FLAGS_cinn_source_code_save_path=/tmp/e2/src_static.cu \
+nsys profile -t cuda -o /tmp/e2/rep_static --force-overwrite=true \
+python ../../../evidence_dynamicShape/static_shape_probe.py "$CASE" > /tmp/e2/run_static.log 2>&1
+echo "exit=$?"
+
+grep -c 'extern "C" {' /tmp/e2/src_static.cu   # group 数
+grep -c '__global__'   /tmp/e2/src_static.cu   # kernel 数
+grep -c 'COND__F'      /tmp/e2/src_static.cu   # 谓词分桶数
+grep -cE 'int(32|64)_t S[0-9]' /tmp/e2/src_static.cu   # 符号形参数
+```
+
+**实测结果**（`static_shape_control.log`）
+
+| 指标 | 动态 spec（含 -1） | 静态 spec | 说明 |
+|---|---|---|---|
+| `extern "C"` group 数 | 2 | 2 | 图结构相同，融合结果相同 |
+| `__global__` kernel 数 | 8 | **2** | 动态 = 每 group 4 桶；静态 = 每 group 1 个 |
+| `COND__` 谓词桶数 | 8 | **0** | 静态下谓词退化为 `COND_true__` |
+| 符号形参 `S0/S1/S2` | 8 | **0** | 静态下尺寸已内联为常量 |
+| group1 实测 launch | 18×1×1 / block 1 | 1×1×1 / **block 32** | tile 由确切 numel 定 |
+| group2 实测 launch | 137×1×1 / block 1024 | 8×72×1 / **block 256** | 静态用 2D grid，完全不同的 tiling |
+
+静态编译选出的 block（32 / 256）**不等于**动态四桶里的任何一个（1 / 1024）。这说明 tile
+配置是 numel 的函数：尺寸已知就按确切值定一份，尺寸未知就按 numel 区间枚举多份、运行期选。
+
+**判定**：`COND__` 谓词桶数与符号形参数在静态下均为 0，且 kernel 数从 8 降到 2 —— 即
+T5/T8.1 观察到的分桶结构确由"动态 shape"引入，不是 CINN 对任意图的固有行为。
+
+**留存**：`static_shape_control.log`、`static_shape_probe.py`。
+
+### T8.3 调优前后性能对比
+
+对比对象是**同一个 case、同一个运行 shape `[1,72,88,88]`** 下的两种 schedule：
+"尺寸已知按确切 numel 定 tile"（static，视为调优上界）与"尺寸未知按 numel 区间分桶"
+（dyn，实际动态路径）。差值即为形状泛化所付的代价。
+
+**操作**
+
+```bash
+cd /work/PaddleTest/framework/e2e/PaddleLT_new
+CASE=layercase/sublayer1000/Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
+mkdir -p /tmp/e4
+
+for MODE in dyn static; do
+  nsys profile -t cuda -o /tmp/e4/rep_$MODE --force-overwrite=true \
+  python ../../../evidence_dynamicShape/tune_perf_probe.py "$CASE" $MODE > /tmp/e4/run_$MODE.log 2>&1
+  echo "$MODE exit=$?"
+done
+
+# 按 kernel 聚合均值（tune_perf_probe.py 固定 5 warmup + 50 iters，故每 kernel n=55）
+for MODE in static dyn; do
+  nsys stats --report cuda_gpu_trace --format csv /tmp/e4/rep_$MODE.nsys-rep 2>/dev/null \
+    | grep fn_reshape | awk -F',' '{print $4"x"$5"x"$6, $7, $2}'
+done
+```
+
+**实测结果**（A100/SM80，n=55/kernel，`tune_perf.log`）
+
+| group | 元素数 | static（确切尺寸） | dyn（分桶命中） | dyn / static |
+|---|---|---|---|---|
+| group1 | 18 | grid 1×1×1 / block 32，**2143 ns** | grid 18×1×1 / block 1，**2019 ns** | 0.94×（均在 kernel 启动开销量级，无实质差异） |
+| group2 | 557568 | grid 8×72×1 / block 256，**3951 ns** | grid 137×1×1 / block 1024，**7259 ns** | **1.84×** |
+| 合计 | — | 6094 ns | 9278 ns | 1.52× |
+
+min/max 离散度均在 ±5% 内（如 group2 dyn 7200~7360 ns），差异远大于噪声。
+
+**判定**：本步**不设通过/不通过门限**，只作为代价量化如实记录。可得的结论是：
+分桶 schedule 确实随形状变化（T8.1），但默认 `policy=default` 的规则化分桶在大 numel
+group 上比确切尺寸调优慢 1.84×，这个差距正是 `optimal`/`hybrid` 策略（T8.0）要填的。
+若验收要求"调优后优于调优前"，需另跑 `FLAGS_tile_config_policy=search` 生成
+`FileTileConfigDatabase` 再以 `optimal` 复测 —— 注意空库会因
+`tile_config_data_.count(policy_)==0` 静默退回 `default`，且 search 分支每 kernel
+重放 25 次，耗时显著。本轮未做。
+
+**留存**：`tune_perf.log`、`tune_perf_probe.py`。
+
+
+
+
+---
+
 ## T7 归档
 
 把本轮产物统一放入 `/work/PaddleTest/evidence_dynamicShape/`：
@@ -467,6 +628,12 @@ python $E/conv_shape_cost_probe.py         > $E/conv_shape_cost.log 2>&1
 | `eager_baseline_probe.py` / `perop_probe.py` / `conv_shape_cost_probe.py` | 驱动脚本 | T6.3 复现用 |
 | `glog_multilink_evidence.log` | T4 附带 | glog 已知缺陷的取证记录（与本指标无关，见 T4 末尾） |
 | `glog_multilink_probe.py` / `glog_sso_matrix.sh` | 驱动脚本 | 上述缺陷的复现用 |
+| `bucket_dispatch.log` | T8.1 | 三个 shape 的运行期分桶命中表（含 md5 一致性） |
+| `bucket_dispatch_probe.py` | 驱动脚本 | T8.1 复现用（单进程单 shape，配合 nsys） |
+| `static_shape_control.log` | T8.2 | 静态 spec 负对照：8 kernel → 2 kernel、`COND__`=0 |
+| `tune_perf.log` | T8.3 | static vs dyn 的 kernel 实测耗时（n=55） |
+| `static_shape_probe.py` / `tune_perf_probe.py` | 驱动脚本 | T8.2 / T8.3 复现用 |
+| `three_c_probe.py` / `three_c_run.log` / `three_c_src.cu` | T6.2 附加 | 三个不同 C 的 picodet 同进程对照：codegen=6、kernel=24，正面复核"不同 C 不复用编译" |
 | 图 9.3.3-1 ~ -5 | T1/T3/T4/T5 | 截图 |
 
 ### 目录组织与文件依赖
@@ -483,6 +650,15 @@ import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` �
 | `layercase/sublayer1000/Det_cases/…` 下 10 个 SIR 文件 | 用例本体（仓库原有，清单见测试计划 §8） |
 
 其余依赖只有运行环境：`paddle`（本机 build，需 CINN + CUDA）与 `numpy`。
+
+若还要跑 T8，再加两个脚本 `evidence_dynamicShape/static_shape_probe.py`、
+`evidence_dynamicShape/tune_perf_probe.py`（同样只靠 `argv` 传用例路径，位置无所谓），
+以及一个外部工具 **`nsys`**（Nsight Systems，用于 `cuda_gpu_trace` 读实际启动的 kernel 名
+与 grid/block）。T8.1 还需把 `ir_probe.py` 的 `SHAPES` 临时改为单一 shape 分三次跑。
+
+`three_c_probe.py` 不接参数，三个用例路径按**自身位置**推导
+（须保持 `evidence_dynamicShape/` 原位，其上级须是 PaddleTest 仓库根）；
+`FLAGS_cinn_source_code_save_path` 由调用方在 `import paddle` 之前 export。
 
 两点实现细节，改动这些文件时需留意：
 
@@ -507,9 +683,12 @@ import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` �
 | 4-b | 符号进入 kernel | kernel 形参含 `int32_t S0, S1, S2`，无尺寸常量 | T5 |
 | 4-c | 按形状分桶调优 | 同一 group 多个 `COND__` kernel，谓词为符号区间 | T5 |
 | 4-d | 一次编译服务全部 shape | codegen 只在首个 shape 触发（T3 的 `codegen` 列），且事件数 = group 数、关缓存后不变 | T3 / T6 |
+| 4-e | 运行期确实按形状选桶 | 跨谓词分界线的三个 shape 命中不同 `COND__` kernel，且 grid/block/寄存器数实测不同；三次编译产物 md5 相同 | T8.1 |
+| 4-f | 分桶为动态 shape 特有 | 静态 spec 下 kernel 数 8→2、`COND__` 谓词桶 8→0、符号形参 8→0 | T8.2 |
 | 5 | 自动化判定 | 主脚本退出码为 `0` | T3 |
 
-八条全部满足即判定技术指标 3 合格。判据 1~3、5 由脚本自动判定，判据 4 由采集产物人工核验。
+十条全部满足即判定技术指标 3 合格。判据 1~3、5 由脚本自动判定，判据 4-a~4-f 由采集产物人工核验。
+T8.3（调优代价量化）**不作为通过门限**，作为附带数据如实记录。
 
 ### 明确不作为判据的项
 
@@ -522,10 +701,23 @@ import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` �
 
 ### 关于"根据不同张量形状自动调优"如何算通过
 
-该能力落在**编译期**，验收方式为：判据 1（一次编译的符号 kernel 能正确服务全部动态 shape）
-+ 判据 4-c（产物中确有按形状区间分桶的多份 tile 策略）
-+ 判据 4-d（分桶 kernel 在首次编译时一并生成，codegen 数与 shape 数无关）。
-**不要求**运行期观测到 per-shape 重编译事件——符号化编译下本就不应发生。
+调优决策落在**编译期**，选择落在**运行期**，验收方式为：
+
+| 评审要求的环节 | 对应判据 / 步骤 |
+|---|---|
+| 触发方式 | T8.0（`FLAGS_tile_config_policy` → `schedule_config_manager.cc` 的三条分支） |
+| 候选配置 | 判据 4-c（T5 的 4 桶表：numel 区间 × 索引位宽的叉积） |
+| 选择结果 | 判据 4-e（T8.1 三 shape 命中不同桶，grid/block/reg 实测不同） |
+| 调优前后性能对比 | T8.3（static 6094 ns vs dyn 9278 ns，group2 差 1.84×） |
+| 分桶归因于动态 shape | 判据 4-f（T8.2 静态负对照） |
+
+配合判据 1（一次编译的符号 kernel 能正确服务全部动态 shape）与判据 4-d（分桶 kernel 在
+首次编译时一并生成，codegen 数与 shape 数无关）。
+**不要求**运行期观测到 per-shape 重编译事件 —— 符号化编译下本就不应发生。
+
+**口径声明（必须写进报告）**：本指标下的"自动调优"取"按形状区间分桶的规则化 schedule
+特化"之义。搜索式 autotuner 需显式设 `FLAGS_tile_config_policy=optimal|hybrid|search`
+才启用，默认关闭；`FLAGS_enable_auto_tuner` 是无调用点的死 flag。详见 T8.0。
 
 ### 已知局限（在报告中如实声明）
 
@@ -534,6 +726,12 @@ import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` �
    应补充含**动态 reduce 维**的子图（softmax / layernorm）。
 2. 本轮仅做 CINN vs eager 两方比对，未纳入 dy2st(`backend=None`) 作为第三方基线，
    属可选补强项，不影响上述判据成立。
+3. T5 的 4 桶候选集是**机械叉积**，其中"numel ≤ 1023 且索引 > INT32_MAX"一桶在逻辑上
+   不可达（两条件互斥）。这反映候选由规则生成、未做可达性剪枝，不影响判据成立，但说明
+   默认策略不是搜索式调优。
+4. T8.3 的 static 一侧是"确切尺寸下的规则化 tile"，作为调优上界的**近似**；它不等于
+   `policy=search` 实测搜索出的最优配置。真正的"调优前 vs 调优后"需按 T8.3 末尾的方法
+   另跑，本轮未做。
 
 ## 4 结果记录表模板
 
@@ -546,6 +744,9 @@ import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` �
 | T5 | | 符号形参 = ，`COND__` kernel 数 = | 通过 / 不通过 |
 | T6.1 | | codegen on/off = ___/___ | 通过 / 不通过 |
 | T6.2 | | codegen on/off = ___/___ | 通过 / 不通过 |
+| T8.1 | | 三 shape 命中桶 = ___/___/___，src md5 一致 = 是/否 | 通过 / 不通过 |
+| T8.2 | | 静态 kernel 数 = ___，`COND__` = ___，符号形参 = ___ | 通过 / 不通过 |
+| T8.3 | | static ___ ns vs dyn ___ ns，比值 ___× | 记录（不设门限） |
 | 总体 | | | **合格 / 不合格** |
 
 

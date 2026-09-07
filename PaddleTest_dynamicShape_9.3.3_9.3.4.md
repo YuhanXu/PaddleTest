@@ -157,17 +157,33 @@ PIR 的动态维由 `InferSymbolicShapeContext::GetNextSymName()` 生成，命�
 `ShapeOrDataDimExprs` 一并打印，打印开关是 `VLOG` 级别 3
 （`paddle/pir/src/dialect/shape/transforms/shape_optimization_pass.cc:31,54-64`）。
 
-不要用全局 `GLOG_v=3`（日志量巨大且拖慢一个数量级），改用 `GLOG_vmodule` 只放开该文件：
+不要用全局 `GLOG_v=3`（日志量巨大且拖慢一个数量级），改用 `GLOG_vmodule` 只放开该文件；
+写法必须用通配短写法（原因见下方"已知缺陷"）：
 
 ```bash
 export GLOG_logtostderr=1
-export GLOG_vmodule=shape_optimization_pass=3
+export GLOG_vmodule='shape_o*=3'    # shape_optimization_pass=3 的通配短写法（10 字节）
 python ir_probe.py <case.py> > ir_symbolic.log 2>&1
 
 grep -n "\[ShapeDialect\]" ir_symbolic.log
 # 5:===================== [ShapeDialect]Origin Program =====================
 # 129:===================== [ShapeDialect]ShapeOptimizationPass Program =====================
 ```
+
+> **已知缺陷（与本指标无关，但影响本步执行体验）**：本 build 中长度 >= 16 字节的
+> `GLOG_*` **字符串型**环境变量（`vmodule` / `log_dir` / `log_backtrace_at`）会让进程
+> 在打完全部输出、进入退出析构阶段时触发 glibc 堆校验并挂死（报错文本漂移：
+> `corrupted double-linked list` / `double free or corruption (!prev)` 等，需 Ctrl+C）。
+> 根因是 `libglog.a` 被静态链进 4 个 .so（`base/libpaddle.so`、`libs/libphi_core.so`、
+> `libs/libphi_gpu.so`、`libs/libcinnapi.so`）且 glog 全局符号导出：ELF 符号插入把
+> 4 份 `fLS::FLAGS_vmodule_buf` 坍缩成 1 个实例，但 4 个静态初始化器各构造一次、
+> 各注册一次 `__cxa_atexit` ⇒ 退出期同一堆指针被 free 4 次；<= 15 字节走 SSO
+> （无堆缓冲）故无害，分界线实测正好在 15/16 字节。`import paddle` 一行加长
+> vmodule 即可复现（无 GPU、无 tensor、无 to_static），与 CINN/符号化/IR dump 无关。
+> **规避即上面的短 glob 写法**（glog vmodule 支持 `*`/`?`），exit=0、产物与长写法
+> 逐字节相同（除时间戳）。完整取证链（SSO 分界线矩阵、ctypes 读 4 份 buf、gdb 4 次
+> 初始化 hit、ASAN double-free）见测试步骤文档 T4 末尾及 `glog_multilink_evidence.log`。
+> 不要用 `os._exit(0)` 跳过析构——那会把 abort 压成 `EXIT=0`，损害验收产物完整性。
 
 实测产物 `shape_dialect_after_pass.txt` 中，输入 `pd_op.data` 那一行是最关键的一行：
 
@@ -427,6 +443,99 @@ codegen 事件 2→4 说明 `FLAGS_enable_cinn_compile_cache=false` **确实生�
 per-batch 开销可归因到 CINN 之外的算子库行为。
 
 
+### 步骤 7 续：自动调优的触发方式、候选集、选择结果与代价
+
+步骤 7.3(c) 只证明了"编译产物里存在多份按形状分桶的 schedule"。要完整支撑"根据不同张量
+形状自动调优"，还需说明**调优由什么触发、候选集是什么、运行期实际选了哪个、调优带来多少
+性能差异**。本节四项均已在 A100 上实测，产物为 `bucket_dispatch.log`、
+`static_shape_control.log`、`tune_perf.log`。操作步骤见测试步骤文档 T8。
+
+**(1) 触发方式（源码链路）**
+
+调优策略由 `FLAGS_tile_config_policy`（`paddle/cinn/runtime/flags.cc:53`，默认 `"default"`）
+选择，`InitScheduleConfig()` 据此装配 `ScheduleConfigManager`
+（`paddle/cinn/ir/group_schedule/config/schedule_config_manager.cc:34-72`）：
+
+| policy | 行为 |
+|---|---|
+| `default`（默认） | 走 `BuildScheduleConfig(group_info, target)` **规则生成**候选，不做实测 |
+| `optimal` / `hybrid` | 从 `FileTileConfigDatabase` 读**已调优落盘**的配置，`hybrid` 以规则结果兜底 |
+| `search` | 触发实测搜索（`ir/group_schedule/search/config_searcher.cc`）；运行期在 `cinn_jit_instruction.cc:121-152` 切到 CUDA Graph 重放 25 次计时打分 |
+
+**必须如实声明的口径问题**：`FLAGS_enable_auto_tuner`（`flags.cc:243`）在整个 `paddle/`
+中**只有定义、没有任何调用点**，是死 flag。因此默认配置下的"自动调优"指的是
+**按形状区间分桶的规则化 schedule 特化**，而不是 profiling 搜索式 autotuner；后者需显式
+设 `FLAGS_tile_config_policy=optimal|hybrid|search`。本轮验收按前者取证并声明该口径。
+
+**(2) 候选集（编译期枚举，实测 4 桶/group）**
+
+以第一个 group（谓词变量 `S0*18`）为例，`cinn_source.cu` 中 4 个 kernel 构成
+`{numel 区间} × {索引位宽}` 的叉积：
+
+| # | 生效谓词 | `launch_bounds` | 形参位宽 | 调度结构 | 源码行 |
+|---|---|---|---|---|---|
+| 1 | `1 <= S0*18 <= 1023` 且 `<= INT32_MAX` | 1 | `int32_t` | 一元素一 block，无循环 | `cinn_source.cu:5-8` |
+| 2 | 同上但 `> INT32_MAX` | 1 | `int64_t` | 同上，索引转 64 位 | `:10-13` |
+| 3 | `S0*18 >= 1024` 且 `<= INT32_MAX` | 1024 | `int32_t` | 1024 线程 × 4 次循环 tile | `:15-25` |
+| 4 | 同上但 `> INT32_MAX` | 1024 | `int64_t` | 同上，索引转 64 位 | `:27-37` |
+
+第二个 group（谓词变量 `S0*S1*S2*72`）结构相同，位于 `:45/:50/:55/:68`。
+注意 #2 在逻辑上不可达（`<=1023` 与 `> INT32_MAX` 互斥），说明候选由规则机械生成、
+未做可达性剪枝 —— 这是"规则化分桶"而非"搜索式调优"的又一处旁证。
+
+**(3) 选择结果（运行期实测命中）**
+
+用三个**跨过谓词分界线**的 shape 各跑一次，nsys `cuda_gpu_trace` 直接读出实际启动的
+kernel 名（名字里就带谓词）与启动配置：
+
+| 运行 shape | group1 `S0*18` | 命中桶 | grid / block / reg | group2 `S0*S1*S2*72` | 命中桶 | grid / block / reg |
+|---|---|---|---|---|---|---|
+| `[1,72,1,1]` | 18 | `LE1023` | 18×1×1 / 1 / 16 | 72 | `LE1023` | 72×1×1 / 1 / 16 |
+| `[1,72,88,88]` | 18 | `LE1023` | 18×1×1 / 1 / 16 | 557568 | **`GE1024`** | 137×1×1 / 1024 / 22 |
+| `[64,72,88,88]` | 1152 | **`GE1024`** | 1×1×1 / 1024 / 19 | 35684352 | `GE1024` | 8713×1×1 / 1024 / 22 |
+
+两个 group 各按**自己的**谓词独立翻转：group1 在第 2→3 行翻转（`S0` 1→64），group2 在
+第 1→2 行翻转（空间维 1×1→88×88）。不同桶的 grid、block、寄存器数实测均不同，说明是
+**不同的已编译 schedule**，而不是同一 kernel 换启动参数。
+
+三次运行的 `FLAGS_cinn_source_code_save_path` 产物 md5 **完全一致**
+（`09c5ab1c800755b6f644f5074f67b1c4`）⇒ 一次编译即产出全部 4 桶，shape 只决定选哪个。
+
+**(4) 分桶归因于动态 shape（静态负对照）**
+
+同一个 case、同一条 CINN 路径，只把 `input_spec` 换成全静态 `[1,72,88,88]`
+（`static_shape_probe.py`）：
+
+| 指标 | 动态 spec | 静态 spec |
+|---|---|---|
+| `extern "C"` group 数 | 2 | 2 |
+| `__global__` kernel 数 | 8 | **2** |
+| `COND__` 谓词桶数 | 8 | **0**（退化为 `COND_true__`） |
+| 符号形参 `S0/S1/S2` | 8 | **0** |
+| group1 实测 launch | grid 18 / block 1 | grid 1 / block **32** |
+| group2 实测 launch | grid 137 / block 1024 | grid 8×72 / block **256** |
+
+静态编译选出的 block（32 / 256）**不等于**动态四桶中的任何一个（1 / 1024）。这证明 tile
+配置是 numel 的函数：尺寸已知就按确切值定一份，尺寸未知就按区间枚举多份、运行期选。
+
+**(5) 调优代价量化**
+
+同 case、同运行 shape `[1,72,88,88]`、各 55 次前向（5 warmup + 50 iters），
+`tune_perf_probe.py`：
+
+| group | 元素数 | static（确切尺寸） | dyn（分桶命中） | dyn / static |
+|---|---|---|---|---|
+| group1 | 18 | block 32，**2143 ns** | block 1，**2019 ns** | 0.94×（同属启动开销量级） |
+| group2 | 557568 | grid 8×72 / block 256，**3951 ns** | grid 137 / block 1024，**7259 ns** | **1.84×** |
+| 合计 | — | 6094 ns | 9278 ns | 1.52× |
+
+min/max 离散度在 ±5% 内，差异远大于噪声。解读：分桶 schedule 确实随形状变化，但默认
+`policy=default` 的规则化分桶在大 numel group 上比确切尺寸调优慢 1.84× —— 这个差距正是
+`optimal`/`hybrid` 策略要填的。此处 static 一侧只是调优上界的**近似**，不等于
+`policy=search` 搜出的最优配置；真正的"调优前 vs 调优后"需另跑 search 生成
+`FileTileConfigDatabase` 后以 `optimal` 复测（注意空库会静默退回 `default`），本轮未做。
+
+
 ### 步骤 8：执行并收集结果
 
 ```bash
@@ -487,6 +596,12 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 真正编译 ⇒ 编译缓存按 FusionInfo 命中。两条现象在主用例日志内同时可见，
 与 7.4 实验 2 的独立对照结论一致。
 
+"不同 C 不复用编译"另有最小独立对照 `three_c_probe.py`
+（产物 `three_c_run.log` / `three_c_src.cu`，已复现验证）：同进程先后编译三个
+拓扑相同、仅 C 不同的 picodet 子图（C=72/56/44），codegen = 6（3 × 2 group，
+无一命中缓存）、分桶 kernel = 24，三个首次前向各 ~5s（完整编译耗时）——
+与实验 2 的"同 C 命中缓存"（codegen 2→4）构成同一枚硬币的两面。
+
 > **图 9.3.3-2**：单 case 明细表截图（体现 7 组 shape 全 PASS）。
 >
 > **图 9.3.3-3**：汇总段截图
@@ -512,6 +627,14 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 | `eager_baseline_probe.py` / `eager_baseline.log` | 纯 eager 复现 S1/S5 慢（无 CINN） | 步骤 7 补充 |
 | `perop_probe.py` / `perop.log` | 逐 op 计时 + 显存对照，定位到两个 conv2d | 步骤 7 补充 |
 | `conv_shape_cost_probe.py` / `conv_shape_cost.log` | 干净进程裸 conv：每个首见 N 付一次几十毫秒 | 步骤 7 补充 |
+| `ir_symbolic.log` | T4 全量 glog 输出（含两段 `[ShapeDialect]`） | 步骤 7.1 |
+| `glog_multilink_evidence.log` | glog 多重链接缺陷取证（与本指标无关，见步骤 7.1 附注） | 步骤 7.1 附 |
+| `glog_multilink_probe.py` / `glog_sso_matrix.sh` | 上述缺陷的最小复现驱动（SSO 分界线矩阵） | 步骤 7.1 附 |
+| `bucket_dispatch_probe.py` | T8.1 驱动：单进程单 shape，配合 nsys 采分桶命中 | 步骤 7 续 |
+| `bucket_dispatch.log` | 三个 shape 的运行期分桶命中表（含 md5 一致性） | 步骤 7 续 (3) |
+| `static_shape_probe.py` / `static_shape_control.log` | T8.2 静态 spec 负对照：8 kernel → 2、`COND__`=0 | 步骤 7 续 (4) |
+| `tune_perf_probe.py` / `tune_perf.log` | T8.3 static vs dyn 的 kernel 实测耗时（n=55） | 步骤 7 续 (5) |
+| `three_c_probe.py` / `three_c_run.log` / `three_c_src.cu` | 三个不同 C 的 picodet 同进程对照：codegen=6、kernel=24 | 步骤 8 |
 
 连同步骤 1 的环境自检输出与 5 张截图，共同构成本指标的证据链。
 观测编译行为时用步骤 7.4 的 codegen 事件计数（`extern "C" {` 块数）配合

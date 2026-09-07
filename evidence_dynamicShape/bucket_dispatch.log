@@ -1,0 +1,22 @@
+# E1 运行期分桶命中（nsys cuda_gpu_trace，A100/SM80，2026-09-05T06:08:47Z）
+# case: layercase/sublayer1000/Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
+# 三次运行的 FLAGS_cinn_source_code_save_path 产物 md5 完全一致 = 09c5ab1c800755b6f644f5074f67b1c4
+# （与 evidence_dynamicShape/cinn_source.cu 同）=> 一次编译产出全部 4 桶，shape 只决定启动哪一个
+
+===== run shape [1,72,1,1] =====
+G1(S0*18)          bucket=LE1023  grid=18x1x1 block=1x1x1 reg=16 dur=2016ns
+G1(S0*18)          bucket=LE1023  grid=18x1x1 block=1x1x1 reg=16 dur=2304ns
+G2(S0*S1*S2*72)    bucket=LE1023  grid=72x1x1 block=1x1x1 reg=16 dur=2560ns
+G2(S0*S1*S2*72)    bucket=LE1023  grid=72x1x1 block=1x1x1 reg=16 dur=2688ns
+
+===== run shape [1,72,88,88] =====
+G1(S0*18)          bucket=LE1023  grid=18x1x1 block=1x1x1 reg=16 dur=2048ns
+G1(S0*18)          bucket=LE1023  grid=18x1x1 block=1x1x1 reg=16 dur=2336ns
+G2(S0*S1*S2*72)    bucket=GE1024  grid=137x1x1 block=1024x1x1 reg=22 dur=7328ns
+
+===== run shape [64,72,88,88] =====
+G1(S0*18)          bucket=GE1024  grid=1x1x1 block=1024x1x1 reg=19 dur=2880ns
+G1(S0*18)          bucket=GE1024  grid=1x1x1 block=1024x1x1 reg=19 dur=2912ns
+G2(S0*S1*S2*72)    bucket=GE1024  grid=8713x1x1 block=1024x1x1 reg=22 dur=237183ns
+G2(S0*S1*S2*72)    bucket=GE1024  grid=8713x1x1 block=1024x1x1 reg=22 dur=237854ns
+

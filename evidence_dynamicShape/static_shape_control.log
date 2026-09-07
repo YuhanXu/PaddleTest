@@ -1,0 +1,13 @@
+# E2 静态 shape 负对照（2026-09-05T06:10:07Z）
+# 同 case、同 CINN 路径，唯一差别：input_spec 用全静态 shape [1,72,88,88]
+
+extern_C=2  __global__=2  COND__谓词桶=0  符号形参S0/S1/S2=0
+（动态 shape 同 case 为 extern_C=2 __global__=8 COND__谓词桶=8 符号形参=8）
+
+--- 静态编译的 kernel 签名（谓词退化为 COND_true__，无 Sx 形参）---
+void __launch_bounds__(32) fn_reshape_add_full_max__10342299779483483015_COND_true__kernel
+void __launch_bounds__(256) fn_reshape_add_full_mul_full_add_full_min_full_max_bc_mul__2053255021606788863_COND_true__kernel
+
+--- 静态编译实际启动配置（nsys）---
+G1 grid=1x1x1 block=32x1x1 reg=16 dur=2432ns
+G2 grid=8x72x1 block=256x1x1 reg=21 dur=4096ns
