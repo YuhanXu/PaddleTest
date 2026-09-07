@@ -558,6 +558,73 @@ min/max 离散度在 ±5% 内，差异远大于噪声。解读：分桶 schedule
   (8,2)）：一次编译 8 kernel，运行期选桶——[1,72,88,88] 命中大桶 5651 ns，
   [1,72,1,1] 命中小桶 2380 ns（default 同 shape 2560 ns）。
 
+**(7) 三场景 kernel 产物对照（default / optimal / static）**
+
+先厘清场景口径：三场景都以 `paddle.jit.to_static(net, backend="CINN")`（动转静
+开 CINN）为共同前提，按 input_spec 与 policy 细分；纯"动态图"（eager，不开
+to_static）**不属于三者之列**——它不经过 CINN 编译，是数值基线（70/70 PASS 的
+对照方）与 `eager_baseline.log` 的性能参照。
+
+| 场景 | input_spec | policy | 含义 | 产物文件 |
+|---|---|---|---|---|
+| default | 动态 `(-1,72,-1,-1)` | `default`（默认） | 生产默认路径：规则化分桶 | `default_src.cu` |
+| optimal | 动态 `(-1,72,-1,-1)` | `optimal` | 读搜索落库的 bucket→tileConfig | `optimal_src.cu` |
+| static | 静态 `(1,72,88,88)` | —（无关） | 对照组/性能上界：确切尺寸单 kernel | `static_src.cu` |
+
+三份 G2（557568 元素 SE 乘法）kernel 的关键差异（完整源码见归档文件）：
+
+| 维度 | default | optimal | static |
+|---|---|---|---|
+| kernel 总数 | 8（2 桶×2 位宽×2 group） | 8（同结构，桶边界来自 JSON） | **2**（每 group 1 个） |
+| 谓词 | `GE1024/LE1023`（规则定死） | 同型，边界可自定义 | `COND_true`（无谓词） |
+| 形参 | `int32_t S0,S1,S2` | 同左 | **无** |
+| launch_bounds | 1 / 1024 | 32 / 256 | 32 / 256 |
+| grid | 1-D，137 block | 1-D，1090 block | **2-D 8×72** |
+| 每元素索引开销 | 符号 div/mod | 符号 div/mod | **零**（编译期折叠） |
+| G2 实测 | 7252 ns | 5651 ns | 3951 ns |
+
+default 大桶（节选，`__launch_bounds__(1024)`、4 轮循环、每元素 2 次以上运行期
+除/模）：
+
+```cuda
+for (int32_t i_..._0 = 0; i_..._0 < 4; i_..._0 += 1) {
+  if (((((blockIdx.x*4)+i_..._0)*1024)+threadIdx.x) < ((S0*S1)*S2)*72) {
+    var_1_local = var_1[(idx % ((S1*S2)*72))/(S1*S2) + (idx/((S1*S2)*72))*72];
+    var_24[idx] = var_9_local * max(min(((var_1_local+var_local)*0.1667f)+0.5f,1.f),0.f);
+```
+
+optimal 大桶（同一谓词区间与索引结构，仅切分形态不同：`__launch_bounds__(256)`、
+spatialInnerNum=2 → 2 轮循环、grid 1090）：
+
+```cuda
+for (int32_t i_..._7 = 0; i_..._7 < 2; i_..._7 += 1) {
+  if (((((blockIdx.x*2)+i_..._7)*256)+threadIdx.x) < ((S0*S1)*S2)*72) {
+    // 索引计算与 default 完全相同（仍是符号 div/mod）
+```
+
+static（无任何 S 形参；C=72 升格为 `blockIdx.y`、88×88=7744 等全为字面常量，
+广播权重直接 `var_1[blockIdx.y]`，除/模全部消失）：
+
+```cuda
+void __launch_bounds__(256) fn_..._COND_true__kernel(
+    const float* var, const float* var_1, const float* var_12, float* var_13) {
+  __builtin_assume(((int)blockIdx.x < 8));
+  __builtin_assume(((int)blockIdx.y < 72));
+  ...
+  var_1_local = var_1[(int)blockIdx.y];
+```
+
+三档性能的归因：**(i) static 最快**是因为确切尺寸让 `%`/`/` 编译期折叠、广播维
+变成 grid.y、无谓词——这是"确切尺寸调优"的全部红利；**(ii) optimal 比 default 快
+1.28×** 时索引计算结构完全相同，差的纯粹是切分形态——default 的 1024 线程×4 轮
+只有 137 个 block，对 A100 的 108 个 SM 而言尾部分布不均、并发块少；optimal 的
+256 线程×2 轮有 1090 个 block（每 SM ~10 个），负载均衡与延迟隐藏更好。**搜索
+搜到的不是新算法，是同一算法下更匹配硬件的 block/tile 形态**——这是规则
+（`warp_num` 一刀切）给不出的。**(iii) optimal 与 static 剩余 1.43×** 是符号化
+本身（运行期 div/mod + 谓词 + 无法用 grid.y 承载广播维）的代价，即"支持任意
+shape"的泛化成本，与 (5) 的定性一致。另注：default 小桶 `__launch_bounds__(1)`、
+每 block 单线程（18 元素开 18 个单线程 block），规则对小 numel 的切分同样保守。
+
 
 ### 步骤 8：执行并收集结果
 
@@ -661,6 +728,7 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 | `optimal_search.log` | T9 汇总：机制发现、控制实验、11 候选网格、收益 1.28× | 步骤 7 续 (6) |
 | `optimal_perf_probe.py` / `kern_agg.py` | T9 探针（import 后覆盖 CINN_CONFIG_PATH）+ nsys 聚合 | 步骤 7 续 (6) |
 | `optimal_tile_config.json` / `optimal_src.cu` | T9 双桶最终配置 + 生成的 CUDA 源码（8 kernel） | 步骤 7 续 (6) |
+| `default_src.cu` / `static_src.cu` | 三场景对照另两份源码（规则分桶 / 确切尺寸单 kernel） | 步骤 7 续 (7) |
 
 连同步骤 1 的环境自检输出与 5 张截图，共同构成本指标的证据链。
 观测编译行为时用步骤 7.4 的 codegen 事件计数（`extern "C" {` 块数）配合
