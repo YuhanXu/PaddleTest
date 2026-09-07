@@ -1,4 +1,8 @@
-# api:paddle.tensor.manipulation.split||api:paddle.tensor.manipulation.split||method:__add__||method:__truediv__||method:__add__||method:__truediv__||method:__sub__||method:__sub__||method:__add__||method:__truediv__||method:__add__||method:__truediv__||method:__sub__||method:__sub__||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||method:__sub__||method:__sub__||method:__mul__||api:paddle.tensor.logic.greater_than||method:__mul__||api:paddle.tensor.logic.greater_than||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__add__||method:__sub__||method:__add__||method:__truediv__||method:__sub__||method:__sub__||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__add__||method:__sub__||method:__sub__||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__add__||method:__add__||method:__add__||method:__truediv__||method:__truediv__||method:__truediv__||api:paddle.tensor.ops.atan||api:paddle.tensor.ops.atan||method:__sub__||method:__rmul__||method:__mul__||method:__rsub__||method:__add__||method:__add__||method:__truediv__||method:__mul__||method:__rsub__||method:__add__||method:__add__||method:__mul__||api:paddle.tensor.stat.mean||method:__mul__
+# CINN Kernel 1 (backward): fn_scale_gs_bc_gs_cast_gs_bc_div_scale_div_div_scale_mul_...
+# CIoU 主反向: 完整 CIoU loss 的反向传播主体梯度计算
+# 包含: scale, div, mul, cast, equal, greater_than, less_than, add 等反向 ops
+# 与原始 SIR_107.py 相同, var_0 stop_gradient=False 以触发反向
+# 前向产生 3 个 CINN kernel, 反向产生 3 个 CINN kernel, 其中 kernel 1 是目标
 import paddle
 import unittest
 import numpy as np
@@ -7,6 +11,7 @@ import numpy as np
 class LayerCase(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
+
     def forward(
         self,
         var_0,    # (shape: [24], dtype: paddle.float32, stop_gradient: False)
@@ -80,8 +85,8 @@ class LayerCase(paddle.nn.Layer):
         var_65 = var_63.__truediv__(var_64)
         var_66 = var_20.__truediv__(var_21)
         var_67 = var_14.__truediv__(var_15)
-        var_68 = paddle.atan(var_66)
-        var_69 = paddle.atan(var_67)
+        var_68 = paddle.tensor.ops.atan(var_66)
+        var_69 = paddle.tensor.ops.atan(var_67)
         var_70 = var_68.__sub__(var_69)
         var_71 = var_70.__rmul__(0.4052847345693511)
         var_72 = var_71.__mul__(var_70)
@@ -99,19 +104,21 @@ class LayerCase(paddle.nn.Layer):
         return var_83
 
 
-
 def create_inputspec():
     inputspec = (
         paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=False),
-        paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=False),
+        paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=True),
     )
     return inputspec
+
 
 def create_tensor_inputs():
     inputs = (
         paddle.rand(shape=[24], dtype=paddle.float32),
         paddle.rand(shape=[24], dtype=paddle.float32),
     )
+    inputs[0].stop_gradient = False
+    inputs[1].stop_gradient = True
     return inputs
 
 
@@ -127,6 +134,7 @@ class TestLayer(unittest.TestCase):
     def setUp(self):
         self.inputs = create_tensor_inputs()
         self.net = LayerCase()
+
     def train(self, net, to_static, with_prim=False, with_cinn=False):
         if to_static:
             paddle.base.core._set_prim_all_enabled(with_prim)
@@ -138,6 +146,7 @@ class TestLayer(unittest.TestCase):
         paddle.seed(123)
         outs = net(*self.inputs)
         return outs
+
     def test_ast_prim_cinn(self):
         st_out = self.train(self.net, to_static=True)
         cinn_out = self.train(self.net, to_static=True, with_prim=True, with_cinn=True)

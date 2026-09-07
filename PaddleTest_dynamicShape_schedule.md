@@ -95,9 +95,10 @@
 
 ## 6. 验收标准（证明指标 3 成立）
 
-- [x] 同一份权重、同一次 CINN 编译入口，能对 S0~S6 全部不同 shape 正确前向且数值与 eager 一致
-      （实测 10 case × 7 shape = **70/70 PASS**，见 §9.1）。
-- [x] 覆盖 batch 维、空间维、以及多维同时变化三类动态场景（S1/S5、S2/S3、S4）。
+- [x] 同一份权重、同一次 CINN 编译入口，能对 S0~S8 全部不同 shape 正确前向且数值与 eager 一致
+      （实测 10 case × 9 shape = **90/90 PASS**，见 §9.1）。
+- [x] 覆盖 batch 维、空间维、以及多维同时变化三类动态场景（S1/S5、S2/S3、S4），
+      并含两个跨 1023/1024 桶边界的变体（S7 翻入小桶、S8 翻入大桶，评审补测 2026-09-07）。
 - [x] 中间 IR 证据：动态维在 PIR 中标注为符号 `S0`/`S1`/`S2`，且 CINN 生成的 CUDA 源码中以
       运行期整型形参 `int32_t S0, S1, S2` 进入 kernel —— **已于 2026-08-25 在 A100 上实测采集**，
       产物见 `evidence_dynamicShape/`（详见 §9.4）。
@@ -139,12 +140,12 @@ python test_dynamic_shape_cinn.py --static-only <case.py>  # 干净进程只跑�
 ```
 
 脚本对每个 case：eager 与 CINN 两个实例共享同一 `state_dict` → 用带 `-1` 的动态 InputSpec 对 CINN
-只 `to_static(backend="CINN")` 编译一次 → 依次喂入 7 组 shape（S0~S6）
-→ 与 eager 逐一 `assert_allclose(atol=1e-5)`。脚本同时统计 glog 编译标记出现次数（compiles），
-但**该计数仅能说明 CINN 后端被激活，不能作为编译次数证据**（见 §9.2）。
+只 `to_static(backend="CINN")` 编译一次 → 依次喂入 9 组 shape（S0~S8，其中 S7/S8 为跨桶边界变体）
+→ 与 eager 逐一 `assert_allclose(atol=1e-5)`。脚本同时统计每个 shape 前后 `extern "C" {` 块数的
+差分作为 codegen 事件数（§9.6）；早期的 glog compiles 计数已删除（不能作为编译次数证据，见 §9.2）。
 
 脚本已按评审意见修正三处（提升作为"验证脚本"的可信度）：
-1. **退出码收紧**：每个 case 必须 S0~S6 **全 PASS**（无 FAIL、无 SKIP）才算 OK，否则 `exit 1`；与 §6 一致。
+1. **退出码收紧**：每个 case 必须 S0~S8 **全 PASS**（无 FAIL、无 SKIP）才算 OK，否则 `exit 1`；与 §6 一致。
 2. **数值失败与非法 shape 分离**：`assert_allclose` 不一致判 `FAIL:numeric`（真 bug，绝不降级）；
    仅"构造输入/eager 前向即失败"才判 `SKIP:shape`；CINN 前向异常判 `FAIL:cinn`。
 3. **编译计数取代耗时推断**：`GLOG_logbufsecs=0` + fd 级捕获 stderr，统计
@@ -186,24 +187,25 @@ source /work/env3.10/bin/activate
 
 ## 9. 实跑结果（2026-08，A100）——数值结论成立，编译计数方法作废（第二次更正稿）
 
-10 个用例全部通过数值校验，**总计 70/70 shape**（`assert_allclose(atol=rtol=1e-5)`，CINN vs eager 逐一一致）。
+10 个用例全部通过数值校验，**总计 90/90 shape**（`assert_allclose(atol=rtol=1e-5)`，CINN vs eager 逐一一致；
+原 7 组 S0~S6 为 70/70，2026-09-07 评审补测追加 S7/S8 两个跨桶边界变体后为 90/90）。
 这一部分结论稳定可复现。但本轮曾用作"编译/调优证据"的 **compiles 计数已被证伪**，
 相关推论一并撤回，见 §9.2。
 
 ### 9.1 数值正确性（全部 PASS）
 
-| # | 模型子图 | 结果 (S0~S6) |
+| # | 模型子图 | 结果 (S0~S8) |
 |---|----------|--------------|
-| 1 | picodet_l_640/SIR_17 (C=72) | 7/7 PASS |
-| 2 | picodet_m_320/SIR_17 (C=56) | 7/7 PASS |
-| 3 | picodet_s_320/SIR_17 (C=44) | 7/7 PASS |
-| 4 | ttfnet_pafnet_lite/SIR_22 (C=72) | 7/7 PASS |
-| 5 | ssdlite_mbv3_large/SIR_31 (C=120) | 7/7 PASS |
-| 6 | yolov3_mbv3_ssld/SIR_64 (C=480) | 7/7 PASS |
-| 7 | centernet_mbv3_large/SIR_22 (C=72) | 7/7 PASS |
-| 8 | ppyolo_tiny/SIR_31 (C=64) | 7/7 PASS |
-| 9 | ppyolo_mbv3_small/SIR_49 (C=240) | 7/7 PASS |
-| 10 | ppyolo_mbv3_large/SIR_77 (C=960) | 7/7 PASS |
+| 1 | picodet_l_640/SIR_17 (C=72) | 9/9 PASS |
+| 2 | picodet_m_320/SIR_17 (C=56) | 9/9 PASS |
+| 3 | picodet_s_320/SIR_17 (C=44) | 9/9 PASS |
+| 4 | ttfnet_pafnet_lite/SIR_22 (C=72) | 9/9 PASS |
+| 5 | ssdlite_mbv3_large/SIR_31 (C=120) | 9/9 PASS |
+| 6 | yolov3_mbv3_ssld/SIR_64 (C=480) | 9/9 PASS |
+| 7 | centernet_mbv3_large/SIR_22 (C=72) | 9/9 PASS |
+| 8 | ppyolo_tiny/SIR_31 (C=64) | 9/9 PASS |
+| 9 | ppyolo_mbv3_small/SIR_49 (C=240) | 9/9 PASS |
+| 10 | ppyolo_mbv3_large/SIR_77 (C=960) | 9/9 PASS |
 
 最终判定：全部通过（exit 0）。
 
@@ -251,7 +253,7 @@ LOG_FIRST_N(INFO, 1) << "Compiling subgraph with CINN backend ...";
 ### 9.3 对指标 3 的诚实拆解
 
 - "**支持可变形状输入张量**"：**已证明**。同一份权重、单次动态编译入口，可正确前向 batch/空间/多维同变的
-  所有 shape，数值与 eager 一致（70/70）。该结论不依赖已作废的编译计数。
+  所有 shape，数值与 eager 一致（90/90，含跨桶边界 S7/S8）。该结论不依赖已作废的编译计数。
 - "**根据不同张量形状自动调优**"：**已由编译产物实测证明**（见 §9.4）。
   CINN 的形状自适应调优由编译期 group_schedule 按形状区间分桶（bucket）+ 逐桶 tile 完成，
   一个 group 产出多份调度策略不同的符号 kernel，运行期按符号谓词选桶、不重编译。
@@ -432,19 +434,25 @@ stderr 重定向已删除。全量重跑（`python test_dynamic_shape_cinn.py`�
 | ppyolo_mbv3_small / SIR_49 | 240 | 2 | 各自编译 |
 | ppyolo_mbv3_large / SIR_77 | 960 | 2 | 各自编译 |
 
-全进程合计 17，`总计 shape 通过: 70/70`，`exit 0`。两次独立重跑分布一致。
+全进程合计 17，`总计 shape 通过: 90/90`，`exit 0`。两次独立重跑分布一致
+（S7/S8 为 2026-09-07 追加后重跑，codegen 合计仍为 17）。
 
-读法：**每个 case 只有 S0 的 `codegen` 为正、S1~S6 恒为 0** ⇒ 一次符号化编译服务全部 shape。
+读法：**每个 case 只有 S0 的 `codegen` 为正、S1~S8 恒为 0** ⇒ 一次符号化编译服务全部 shape；
+其中 S7/S8 触发桶翻转（运行期谓词改选另一桶）却 codegen=0，说明**翻桶不触发重编译**。
 单 case 合计允许为 0 或小于 group 数（ttfnet=1、centernet=0），那是同拓扑同 C 的子图命中
 FusionInfo 缓存，因此报告里这一行的措辞是"本 case 新增 codegen 事件: N（未命中缓存的 group 数 /
 全部命中编译缓存）"，不能读作"该子图只有 N 个 group"。
 
 本轮产物归档于 `/work/PaddleTest/evidence_dynamicShape/`：
-`dynamic_shape_cinn.log`（本节全量日志）、`shape_dialect_origin.txt` /
+`dynamic_shape_cinn.log`（本节全量日志，90/90）、`shape_dialect_origin.txt` /
 `shape_dialect_after_pass.txt`（§9.4 符号化 PIR）、`cinn_source.cu`（§9.4 生成源码）、
 `cache_{on,off}_{run.log,src.cu}`（§9.5 实验 1）、
 `two_case_cache_{on,off}_{run.log,src.cu}`（§9.5 实验 2）、
 `eager_baseline.log` / `perop.log` / `conv_shape_cost.log`（§9.7 三个探针）、
+`boundary_shape_acc_probe.py` / `boundary_shape_acc_{small,big}.log`
+（跨桶边界 shape 的 eager vs CINN 精度探针，评审补测 2026-09-07，双 PASS）、
+`nsys_raw/`（T8.1/T8.3/T9 全部原始 nsys-rep 与 trace CSV，含 e4/t9/si2 等 76 文件，
+全部性能数字可由其复算）、
 以及驱动脚本 `ir_probe.py` / `cache_probe.py` / `two_case_probe.py` /
 `eager_baseline_probe.py` / `perop_probe.py` / `conv_shape_cost_probe.py`。
 
@@ -560,7 +568,7 @@ N=1/2/4 早已被前面的整网 conv 走过、cuDNN 缓存已热，测出来是
   reduce 维是否动态、numel 区间）**决定分块与并行策略——这就是"根据形状调优"的实体，
   它在**编译时**完成一次，产物随符号 kernel 固化。
 - 因此指标 3 的两半应这样表述：
-  1. 支持可变形状输入 —— 运行期能力，已由 70/70 数值一致直接证明；
+  1. 支持可变形状输入 —— 运行期能力，已由 90/90 数值一致直接证明；
   2. 根据不同张量形状自动调优 —— **编译期**能力：按形状区间分桶 + 逐桶 tile，
      一次编译产出多份形状分桶的符号 kernel，运行期按谓词选桶、不再 per-shape 重调优。
      此项已由 §9.4(c) 的 `COND__` 分桶 kernel 实测证据佐证。

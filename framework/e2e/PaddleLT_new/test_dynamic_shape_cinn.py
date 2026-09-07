@@ -88,6 +88,12 @@ VARIANTS = [
     (2.0, 0.5, "S4-batchx2-spatial/2"),
     (4.0, 1.0, "S5-batchx4"),
     (2.0, 1.0, "S6-batchx2(repeat->缓存)"),
+    # 跨桶边界变体（桶翻转，对应 T8.1/T8.4 的边界 shape）：
+    # S7: sf=0.01 ⇒ round(base*0.01) 归一到 1，得 [1,C,1,1]，主 group numel=C<1024
+    #     翻入 LE1023 小桶（10 个 case 的 C 均 ≤ 960，全部翻转）
+    # S8: batch×64，S0*固定维积 ≥1024 时翻入 GE1024 大桶（如 SIR_17: 64*18=1152）
+    (1.0, 0.01, "S7-spatial_min(小桶)"),
+    (64.0, 1.0, "S8-batchx64(大桶)"),
 ]
 
 ATOL = 1e-5

@@ -26,7 +26,7 @@
 |------|------|------|---------|
 | T1 | 环境自检 | 确认 CINN/CUDA 可用，避免假通过 | 前置 |
 | T2 | 用例前置核查 | 确认输入 spec 含动态维 `-1` | 前置 |
-| T3 | 主用例全量执行 | 10 case × 7 shape 功能与数值正确性 | 判据 1/2/3/5 |
+| T3 | 主用例全量执行 | 10 case × 9 shape（含 2 个跨桶边界变体）功能与数值正确性 | 判据 1/2/3/5 |
 | T4 | 采集符号化 PIR | 证明动态维在 IR 中是符号 | 判据 4-a |
 | T5 | 采集 CINN 生成的 CUDA 源码 | 证明符号进入 kernel、存在形状分桶 | 判据 4-b/4-c |
 | T6 | 编译次数计数与关缓存对照 | 证明一次编译服务全部 shape | 判据 4-d |
@@ -111,6 +111,12 @@ inspec : [[-1, 72, -1, -1]]
 | S4 | (2, 0.5) | [2, 72, 44, 44] | 多维同时变化 |
 | S5 | (4, 1) | [4, 72, 88, 88] | batch 进一步放大 |
 | S6 | (2, 1) | [2, 72, 88, 88] | 重复 S1 的对照组 |
+| S7 | (1, 0.01) | [1, 72, 1, 1] | **跨桶边界**：空间维归一，主 group numel=C<1024，翻入 LE1023 小桶 |
+| S8 | (64, 1) | [64, 72, 88, 88] | **跨桶边界**：batch×64，S0*18=1152≥1024，翻入 GE1024 大桶 |
+
+> S7/S8 为 2026-09-07 追加的边界变体（即 T8.1/T8.4 的两个边界 shape），
+> 使主用例自身覆盖桶翻转：翻桶发生在**运行期谓词求值**，codegen 仍为 0
+> （桶翻转不触发重编译）。10 个 case 的 C 均 ≤ 960，S7 全部翻入小桶。
 
 **操作**
 
@@ -138,7 +144,9 @@ variant                   shape                     status           codegen  ci
 S0-baseline               [1, 72, 88, 88]           PASS                   2  xxxx.xx
 S1-batchx2                [2, 72, 88, 88]           PASS                   0    xx.xx
 ...
-PASS=7  FAIL=0  SKIP=0  (共 7)
+S7-spatial_min(小桶)        [1, 72, 1, 1]             PASS                   0    xx.xx
+S8-batchx64(大桶)           [64, 72, 88, 88]          PASS                   0    xx.xx
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 72, 88, 88]']
 未触发(复用已编译)的 shape:
@@ -148,19 +156,21 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 72, 44, 44]
     S5-batchx4 [4, 72, 88, 88]
     S6-batchx2(repeat->缓存) [2, 72, 88, 88]
+    S7-spatial_min(小桶) [1, 72, 1, 1]
+    S8-batchx64(大桶) [64, 72, 88, 88]
 ...
-总计 shape 通过: 70/70
+总计 shape 通过: 90/90
 全进程 codegen 事件合计: 17（每个 case 各自编译，与 shape 个数无关；源码见 ...）
 最终判定: 全部通过 (exit 0)
 ```
 
 报告开头的 `inspec (动态编译入口)` 一行即 T2 核查的那个含 `-1` 的 spec，打在日志里是为了让
-"这一次编译的入口是动态的"与后面 7 组具体 shape 在同一份产物内自证；`触发/未触发 codegen`
+"这一次编译的入口是动态的"与后面 9 组具体 shape 在同一份产物内自证；`触发/未触发 codegen`
 两段列出 tag 与其对应的具体 shape，便于直接核对是哪些具体 shape 复用了同一份编译产物。
 
 **判定**
 
-- 每个 case `PASS=7、FAIL=0、SKIP=0`，10 个 case 合计 `70/70`；
+- 每个 case `PASS=9、FAIL=0、SKIP=0`，10 个 case 合计 `90/90`；
 - 进程退出码为 `0`；
 - `codegen` 列的读法：**只在首个 shape 上为正数（= 该子图 group 数），其余 shape 为 0**。
   这正是判据 4-d 想要的形状——一次编译服务全部 shape。若某个后续 shape 出现正数，
@@ -196,7 +206,7 @@ C=72 的三个同构 case 只有第一个真正编译 ⇒ 缓存按 FusionInfo �
 | `SKIP:shape` | eager 侧该 shape 即非法 | 判不合格（本轮用例不应出现） |
 
 **留存**：`dynamic_shape_cinn.log`；单 case 明细表截图（**图 9.3.3-2**）、
-汇总段截图（**图 9.3.3-3**，含 10 行 `[OK ]` 与 `70/70`、`exit 0`）。
+汇总段截图（**图 9.3.3-3**，含 10 行 `[OK ]` 与 `90/90`、`exit 0`）。
 
 ---
 
@@ -601,6 +611,45 @@ group 上比确切尺寸调优慢 1.84×，这个差距正是 `optimal`/`hybrid`
 
 **留存**：`tune_perf.log`、`tune_perf_probe.py`。
 
+### T8.4 边界 shape 数值精度（2026-09-07 补测）
+
+T8.1 的三个 shape 此前只验证了分桶派发（nsys kernel trace），无数值断言；当时主测试
+的 70/70（7 变体）也不覆盖这两个边界 shape。本步补 eager vs CINN 数值对比，口径与
+主测试一致
+（atol=rtol=1e-5、同 seed、同动态 inputspec `-1,72,-1,-1`）。
+
+**操作**
+
+```bash
+cd /work/PaddleTest/evidence_dynamicShape
+CASE=/work/PaddleTest/framework/e2e/PaddleLT_new/layercase/sublayer1000/Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
+for S in 1,72,1,1 64,72,88,88; do
+  python boundary_shape_acc_probe.py "$CASE" $S   # exit 0 = PASS
+  echo "$S exit=$?"
+done
+```
+
+**实测结果**（A100/SM80，`boundary_shape_acc.log`）
+
+| shape | eager vs CINN（1e-5） | max_abs_diff | 判定 |
+|---|---|---|---|
+| `[1,72,1,1]`（group2 命中 `LE1023` 小桶） | allclose=True | 2.98e-08 | PASS |
+| `[64,72,88,88]`（group1 命中 `GE1024` 大桶） | allclose=True | 5.96e-08 | PASS |
+
+max_abs_diff 为 float32 机器精度量级（2^-24 ≈ 6e-8）。
+
+**判定**：两个边界 shape 的 `allclose` 均为 True（exit 0）即通过。补测后，T8.1 中
+出现过的每个 shape 同时具有派发证据（nsys）与精度证据（本步）。
+
+**说明**：这两个边界 shape 原为按 `cinn_source.cu` 谓词反推选定的探针注入
+（`bucket_dispatch_probe.py` 命行参数），非 case 自带；case 自带张量仅基准
+`[1,72,88,88]`，原始 7 个 shape 变体（S0~S6）均不跨 1023/1024 桶边界。
+**2026-09-07 起已将其追加为主用例 S7/S8 变体**（`test_dynamic_shape_cinn.py`
+的 VARIANTS 表），全量重跑 90/90 PASS、S7/S8 的 codegen 全部为 0——主用例
+自身即覆盖桶翻转且证明翻桶不触发重编译；本步保留作为独立单 shape 复现入口。
+
+**留存**：`boundary_shape_acc_probe.py`、`boundary_shape_acc.log`。
+
 ## T9 搜索式调优的读侧验证、手工网格与收益实测（闭环 T8.3 遗留缺口）
 
 T8.3 量化了 `policy=default` 规则分桶与 static 确切尺寸的差距（1.84×）并声明
@@ -712,7 +761,7 @@ CUDA 源码）、`kern_agg.py`（nsys trace 聚合脚本）。
 
 | 文件 | 来自 | 用途 |
 |------|------|------|
-| `dynamic_shape_cinn.log` | T3 | 70/70 PASS、exit 0 |
+| `dynamic_shape_cinn.log` | T3 | 90/90 PASS、exit 0（9 变体含 S7/S8 边界，codegen 合计仍 17） |
 | `ir_symbolic.log` | T4 | `ir_probe.py` 全量输出（两段 `[ShapeDialect]` 的出处） |
 | `shape_dialect_origin.txt` / `shape_dialect_after_pass.txt` | T4 | 符号化 PIR |
 | `cinn_source.cu` | T5 | 符号形参 + `COND__` 分桶 kernel |
@@ -737,11 +786,15 @@ CUDA 源码）、`kern_agg.py`（nsys trace 聚合脚本）。
 | `optimal_perf_probe.py` / `kern_agg.py` | 驱动脚本 | T9 探针（import 后覆盖 CINN_CONFIG_PATH）+ nsys trace 聚合 |
 | `optimal_tile_config.json` | T9 | 双桶最终配置（小桶轻量 + 大桶搜索最优） |
 | `optimal_src.cu` | T9 | 双桶生成的 CUDA 源码（8 kernel，谓词含 GE1024/LE1023 分界） |
+| `boundary_shape_acc_probe.py` / `boundary_shape_acc.log` | T8.4 | 边界 shape（[1,72,1,1]/[64,72,88,88]）eager vs CINN 精度补测，双 PASS（max diff ~6e-8） |
+| `nsys_raw/`（76 文件，25 MB） | T8.1/T8.3/T9 | 全部原始 nsys 档案（`.nsys-rep` + trace CSV + run.log + src.cu），性能数字可由二进制重放复算 |
 | 图 9.3.3-1 ~ -5 | T1/T3/T4/T5 | 截图 |
 
 ### 目录组织与文件依赖
 
-`evidence_dynamicShape/` **平铺存放，不分子目录**。里面的脚本彼此独立，没有任何跨文件
+`evidence_dynamicShape/` **平铺存放，脚本与产物不分子目录**（唯一例外：`nsys_raw/`
+集中存放 T8.1/T8.3/T9 的原始 nsys 二进制档案，共 76 文件/25 MB，避免大量
+`.nsys-rep`/CSV 打乱平铺结构）。里面的脚本彼此独立，没有任何跨文件
 import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` 都是产物，复现时不需要读取。
 
 因此**只跑主用例与符号化 PIR 这两步时，最小可运行集是 12 个文件**：
@@ -779,7 +832,7 @@ import，各自服务上表中对应的一个步骤；`.log` / `.cu` / `.txt` �
 
 | 编号 | 判据 | 判定方式 | 来源 |
 |------|------|---------|------|
-| 1 | 功能正确性 | 每 case 7 组 shape 全 `PASS`，合计 70/70，无 FAIL/SKIP | T3 |
+| 1 | 功能正确性 | 每 case 9 组 shape（S0~S8，含 2 个跨桶边界变体）全 `PASS`，合计 90/90，无 FAIL/SKIP | T3 |
 | 2 | 数值精度 | `assert_allclose(atol=1e-5, rtol=1e-5)` 逐张量通过 | T3 |
 | 3 | 动态场景覆盖 | 同时覆盖 batch 单变(S1,S5)、空间维缩放(S2,S3)、多维同变(S4) | T3 |
 | 4-a | 动态维符号化 | PIR 中 `pd_op.data` 标为 `shape[S0, 72, S1, S2]` | T4 |

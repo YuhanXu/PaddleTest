@@ -1,0 +1,24 @@
+
+NOTICE: Existing SQLite export found: rep_64x72x88x88.sqlite
+        It is assumed file was previously exported from: rep_64x72x88x88.nsys-rep
+        Consider using --force-export=true if needed.
+
+Processing [rep_64x72x88x88.sqlite] with [/opt/nvidia/nsight-systems/2023.2.3/host-linux-x64/reports/cuda_gpu_trace.py]... 
+Start (ns),Duration (ns),CorrId,GrdX,GrdY,GrdZ,BlkX,BlkY,BlkZ,Reg/Trd,StcSMem (MB),DymSMem (MB),Bytes (MB),Throughput (MBps),SrcMemKd,DstMemKd,Device,Ctx,Strm,Name
+2559018707,2912,964,1,1,1,256,1,1,31,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::funcs::DistributionKernel<float, phi::funcs::uniform_distribution<float>, phi::funcs::uniform_real_transform<float>>(unsigned long, unsigned long, unsigned long, T2, T3, T1 *, unsigned long)"
+2559377490,2720,969,1,1,1,256,1,1,31,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::funcs::DistributionKernel<float, phi::funcs::uniform_distribution<float>, phi::funcs::uniform_real_transform<float>>(unsigned long, unsigned long, unsigned long, T2, T3, T1 *, unsigned long)"
+2559699056,2656,974,6,1,1,256,1,1,31,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::funcs::DistributionKernel<float, phi::funcs::uniform_distribution<float>, phi::funcs::uniform_real_transform<float>>(unsigned long, unsigned long, unsigned long, T2, T3, T1 *, unsigned long)"
+2559919311,2368,979,6,1,1,256,1,1,31,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::funcs::DistributionKernel<float, phi::funcs::uniform_distribution<float>, phi::funcs::uniform_real_transform<float>>(unsigned long, unsigned long, unsigned long, T2, T3, T1 *, unsigned long)"
+2561020106,101824,984,864,1,1,256,1,1,31,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::funcs::DistributionKernel<float, phi::funcs::uniform_distribution<float>, phi::funcs::uniform_real_transform<float>>(unsigned long, unsigned long, unsigned long, T2, T3, T1 *, unsigned long)"
+7641882755,98240,1060,288,1,1,32,16,1,26,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::VecReduceKernel<(int)512, (int)1, phi::ReduceExecutor<float, phi::kps::MeanOps<float, float, float>, float, (int)4, (int)4>>(T3)"
+7664141373,2496,2454,None,None,None,None,None,None,None,None,None,0.021,8307.692,Device,None,NVIDIA A100-SXM4-80GB (0),1,21,[CUDA memset]
+7889371950,7456,5353,1,2,1,128,1,1,86,0.033,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,ampere_sgemm_32x32_sliced1x4_tn
+7889836139,2880,5359,1,1,1,1024,1,1,19,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,fn_reshape_gs_bc_add_full_gs_bc_max__11008249055510313070_COND__FPA__FPA__FPA_S0MUL18ll_BPA_GE1024ll_BPA_AND_FPA__FPA_S0MUL18ll_BPA_LE2147483647ll_BPA__BPA___kernel
+7932816997,6048,5455,2,1,1,128,1,1,88,0.000,0.049,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x6_tn_align1>(T1::Params)
+7933575970,237854,5461,8713,1,1,1024,1,1,22,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,fn_reshape_gs_bc_add_full_full_full_full_gs_bc_mul_gs_bc_add_gs_bc_min_gs_bc_max_gs_bc_mul__17594470531925998404_COND__FPA__FPA__FPA__FPA__FPA_S0MULS1_BPA_MULS2_BPA_MUL72ll_BPA_GE1024ll_BPA_AND_FPA__FPA__FPA_S0MUL72ll_BPA_LE2147483647ll_BPA_AND_FPA__FPA__FPA__FPA_S0MULS1_BPA_MULS2_BPA_MUL72ll_BPA_LE2147483647ll_BPA__BPA__BPA___kernel
+7934831804,93631,5471,288,1,1,32,16,1,26,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,"void phi::VecReduceKernel<(int)512, (int)1, phi::ReduceExecutor<float, phi::kps::MeanOps<float, float, float>, float, (int)4, (int)4>>(T3)"
+7935005243,7264,5476,1,2,1,128,1,1,86,0.033,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,ampere_sgemm_32x32_sliced1x4_tn
+7935040667,2912,5480,1,1,1,1024,1,1,19,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,fn_reshape_gs_bc_add_full_gs_bc_max__11008249055510313070_COND__FPA__FPA__FPA_S0MUL18ll_BPA_GE1024ll_BPA_AND_FPA__FPA_S0MUL18ll_BPA_LE2147483647ll_BPA__BPA___kernel
+7935105786,5952,5488,2,1,1,128,1,1,88,0.000,0.049,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,void cutlass::Kernel2<cutlass_80_tensorop_s1688gemm_64x64_16x6_tn_align1>(T1::Params)
+7935378681,237183,5493,8713,1,1,1024,1,1,22,0.000,0.000,None,,None,None,NVIDIA A100-SXM4-80GB (0),1,20,fn_reshape_gs_bc_add_full_full_full_full_gs_bc_mul_gs_bc_add_gs_bc_min_gs_bc_max_gs_bc_mul__17594470531925998404_COND__FPA__FPA__FPA__FPA__FPA_S0MULS1_BPA_MULS2_BPA_MUL72ll_BPA_GE1024ll_BPA_AND_FPA__FPA__FPA_S0MUL72ll_BPA_LE2147483647ll_BPA_AND_FPA__FPA__FPA__FPA_S0MULS1_BPA_MULS2_BPA_MUL72ll_BPA_LE2147483647ll_BPA__BPA__BPA___kernel
+

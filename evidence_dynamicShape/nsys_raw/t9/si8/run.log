@@ -1,0 +1,12 @@
+W0907 06:07:41.206306 147473 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+DB: /tmp/t9/db INPUTSPEC: [(-1, 72, -1, -1)]
+I0907 06:07:41.314764 147473 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0907 06:07:41.477264 147567 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/t9/si8/src.cu"
+I0907 06:07:46.529258 147473 pir_interpreter.cc:1605] New Executor is Running ...
+I0907 06:07:46.529840 147473 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+RAN: [1, 72, 88, 88] iters: 55
+DONE
+Generating '/tmp/nsys-report-00f1.qdstrm'
+[1/1] [0%                          ] rep.nsys-rep[1/1] [0%                          ] rep.nsys-rep[1/1] [===========50%              ] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep[1/1] [0%                          ] rep.nsys-rep[1/1] [7%                          ] rep.nsys-rep[1/1] [===========53%              ] rep.nsys-rep[1/1] [============54%             ] rep.nsys-rep[1/1] [============55%             ] rep.nsys-rep[1/1] [============56%             ] rep.nsys-rep[1/1] [============57%             ] rep.nsys-rep[1/1] [===============66%          ] rep.nsys-rep[1/1] [=================72%        ] rep.nsys-rep[1/1] [==================76%       ] rep.nsys-rep[1/1] [==================77%       ] rep.nsys-rep[1/1] [==================78%       ] rep.nsys-rep[1/1] [===================79%      ] rep.nsys-rep[1/1] [===================81%      ] rep.nsys-rep[1/1] [====================84%     ] rep.nsys-rep[1/1] [=======================94%  ] rep.nsys-rep[1/1] [========================97% ] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep
+Generated:
+    /tmp/t9/si8/rep.nsys-rep

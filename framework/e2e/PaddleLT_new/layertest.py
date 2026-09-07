@@ -257,13 +257,11 @@ class LayerTest(object):
 
 
 if __name__ == "__main__":
-    # layerfile = "layerApicase/math_extreme_size/abs_giant_size_func.py"
-    # testing = "yaml/dy_eval^torch_dy_eval.yml"
-    # # testing = "yaml/dy_eval.yml"
-    # # testing = "yaml/dy_train.yml"
-    # single_test = LayerTest(title=layerfile, layerfile=layerfile, testing=testing)
-    # single_test._case_run()
-    # exit(0)
+    layerfile = "layercase/sublayer1000/Det_cases/rcnn_enhance_faster_rcnn_enhance_3x_coco/SIR_103.py" # 子图case路径
+    testing = "yaml/dy^dy2stcinn_eval-dy2st^dy2stcinn_eval_benchmark.yml"
+    single_test = LayerTest(title="your_name", layerfile=layerfile, testing=testing)
+    single_test._case_run()
+    # single_test._perf_case_run()
 
     if os.environ.get("PLT_PERF_MODE") == "unit-python":
         import argparse

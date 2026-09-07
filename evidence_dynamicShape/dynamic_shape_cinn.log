@@ -1,24 +1,26 @@
-W0831 09:36:18.694016 34620 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
-I0831 09:36:19.477651 34620 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
-I0831 09:36:19.621194 34708 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/cinn_codegen_g9ln5jwr/cinn_source.cu"
-I0831 09:36:24.463887 34620 pir_interpreter.cc:1605] New Executor is Running ...
-I0831 09:36:24.464468 34620 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
-[codegen 计数] CINN 生成源码落盘于: /tmp/cinn_codegen_g9ln5jwr/cinn_source.cu
+W0907 09:33:36.430071 29178 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+I0907 09:33:37.225401 29178 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0907 09:33:37.367077 29257 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/cinn_codegen_j7kijhvn/cinn_source.cu"
+I0907 09:33:42.082505 29178 pir_interpreter.cc:1605] New Executor is Running ...
+I0907 09:33:42.083122 29178 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+[codegen 计数] CINN 生成源码落盘于: /tmp/cinn_codegen_j7kijhvn/cinn_source.cu
 
 ====================================================================================
 CASE: Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
 inspec (动态编译入口): [-1, 72, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 72, 88, 88]           PASS                    2  5138.31
-S1-batchx2                [2, 72, 88, 88]           PASS                    0    61.07
-S2-spatial/2              [1, 72, 44, 44]           PASS                    0     0.82
-S3-spatialx1.5            [1, 72, 132, 132]         PASS                    0     0.77
-S4-batchx2-spatial/2      [2, 72, 44, 44]           PASS                    0     0.65
-S5-batchx4                [4, 72, 88, 88]           PASS                    0    60.61
-S6-batchx2(repeat->缓存)    [2, 72, 88, 88]           PASS                    0     0.70
+S0-baseline               [1, 72, 88, 88]           PASS                    2  5057.35
+S1-batchx2                [2, 72, 88, 88]           PASS                    0    61.36
+S2-spatial/2              [1, 72, 44, 44]           PASS                    0     0.78
+S3-spatialx1.5            [1, 72, 132, 132]         PASS                    0     0.73
+S4-batchx2-spatial/2      [2, 72, 44, 44]           PASS                    0     0.76
+S5-batchx4                [4, 72, 88, 88]           PASS                    0    61.48
+S6-batchx2(repeat->缓存)    [2, 72, 88, 88]           PASS                    0     0.80
+S7-spatial_min(小桶)        [1, 72, 1, 1]             PASS                    0     0.98
+S8-batchx64(大桶)           [64, 72, 88, 88]          PASS                    0    63.41
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 72, 88, 88]']
 未触发(复用已编译)的 shape:
@@ -28,21 +30,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 72, 44, 44]
     S5-batchx4 [4, 72, 88, 88]
     S6-batchx2(repeat->缓存) [2, 72, 88, 88]
+    S7-spatial_min(小桶) [1, 72, 1, 1]
+    S8-batchx64(大桶) [64, 72, 88, 88]
 
 ====================================================================================
 CASE: Det_cases/picodet_legacy_model_picodet_m_320_coco/SIR_17.py
 inspec (动态编译入口): [-1, 56, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 56, 48, 48]           PASS                    2  5001.63
-S1-batchx2                [2, 56, 48, 48]           PASS                    0    60.67
-S2-spatial/2              [1, 56, 24, 24]           PASS                    0     0.59
-S3-spatialx1.5            [1, 56, 72, 72]           PASS                    0     0.41
-S4-batchx2-spatial/2      [2, 56, 24, 24]           PASS                    0     0.39
-S5-batchx4                [4, 56, 48, 48]           PASS                    0    60.38
-S6-batchx2(repeat->缓存)    [2, 56, 48, 48]           PASS                    0     0.57
+S0-baseline               [1, 56, 48, 48]           PASS                    2  4952.91
+S1-batchx2                [2, 56, 48, 48]           PASS                    0    60.93
+S2-spatial/2              [1, 56, 24, 24]           PASS                    0     0.66
+S3-spatialx1.5            [1, 56, 72, 72]           PASS                    0     0.47
+S4-batchx2-spatial/2      [2, 56, 24, 24]           PASS                    0     0.41
+S5-batchx4                [4, 56, 48, 48]           PASS                    0    60.69
+S6-batchx2(repeat->缓存)    [2, 56, 48, 48]           PASS                    0     0.67
+S7-spatial_min(小桶)        [1, 56, 1, 1]             PASS                    0     0.51
+S8-batchx64(大桶)           [64, 56, 48, 48]          PASS                    0    61.35
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 56, 48, 48]']
 未触发(复用已编译)的 shape:
@@ -52,21 +58,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 56, 24, 24]
     S5-batchx4 [4, 56, 48, 48]
     S6-batchx2(repeat->缓存) [2, 56, 48, 48]
+    S7-spatial_min(小桶) [1, 56, 1, 1]
+    S8-batchx64(大桶) [64, 56, 48, 48]
 
 ====================================================================================
 CASE: Det_cases/picodet_legacy_model_picodet_s_320_coco/SIR_17.py
 inspec (动态编译入口): [-1, 44, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 44, 32, 32]           PASS                    2  4959.75
-S1-batchx2                [2, 44, 32, 32]           PASS                    0    59.91
-S2-spatial/2              [1, 44, 16, 16]           PASS                    0     0.60
-S3-spatialx1.5            [1, 44, 48, 48]           PASS                    0     0.48
-S4-batchx2-spatial/2      [2, 44, 16, 16]           PASS                    0     0.55
-S5-batchx4                [4, 44, 32, 32]           PASS                    0    59.31
-S6-batchx2(repeat->缓存)    [2, 44, 32, 32]           PASS                    0     0.59
+S0-baseline               [1, 44, 32, 32]           PASS                    2  4931.82
+S1-batchx2                [2, 44, 32, 32]           PASS                    0    60.83
+S2-spatial/2              [1, 44, 16, 16]           PASS                    0     0.62
+S3-spatialx1.5            [1, 44, 48, 48]           PASS                    0     0.43
+S4-batchx2-spatial/2      [2, 44, 16, 16]           PASS                    0     0.41
+S5-batchx4                [4, 44, 32, 32]           PASS                    0    60.36
+S6-batchx2(repeat->缓存)    [2, 44, 32, 32]           PASS                    0     0.62
+S7-spatial_min(小桶)        [1, 44, 1, 1]             PASS                    0     0.43
+S8-batchx64(大桶)           [64, 44, 32, 32]          PASS                    0    61.37
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 44, 32, 32]']
 未触发(复用已编译)的 shape:
@@ -76,21 +86,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 44, 16, 16]
     S5-batchx4 [4, 44, 32, 32]
     S6-batchx2(repeat->缓存) [2, 44, 32, 32]
+    S7-spatial_min(小桶) [1, 44, 1, 1]
+    S8-batchx64(大桶) [64, 44, 32, 32]
 
 ====================================================================================
 CASE: Det_cases/ttfnet_pafnet_lite_mobilenet_v3_20x_coco/SIR_22.py
 inspec (动态编译入口): [-1, 72, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 72, 44, 44]           PASS                    1  2936.42
-S1-batchx2                [2, 72, 44, 44]           PASS                    0    60.47
-S2-spatial/2              [1, 72, 22, 22]           PASS                    0     0.60
-S3-spatialx1.5            [1, 72, 66, 66]           PASS                    0     0.44
-S4-batchx2-spatial/2      [2, 72, 22, 22]           PASS                    0     0.42
-S5-batchx4                [4, 72, 44, 44]           PASS                    0    61.23
-S6-batchx2(repeat->缓存)    [2, 72, 44, 44]           PASS                    0     0.65
+S0-baseline               [1, 72, 44, 44]           PASS                    1  2856.96
+S1-batchx2                [2, 72, 44, 44]           PASS                    0    60.39
+S2-spatial/2              [1, 72, 22, 22]           PASS                    0     0.66
+S3-spatialx1.5            [1, 72, 66, 66]           PASS                    0     0.46
+S4-batchx2-spatial/2      [2, 72, 22, 22]           PASS                    0     0.43
+S5-batchx4                [4, 72, 44, 44]           PASS                    0    60.86
+S6-batchx2(repeat->缓存)    [2, 72, 44, 44]           PASS                    0     0.71
+S7-spatial_min(小桶)        [1, 72, 1, 1]             PASS                    0     0.51
+S8-batchx64(大桶)           [64, 72, 44, 44]          PASS                    0    62.26
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 1 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 72, 44, 44]']
 未触发(复用已编译)的 shape:
@@ -100,21 +114,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 72, 22, 22]
     S5-batchx4 [4, 72, 44, 44]
     S6-batchx2(repeat->缓存) [2, 72, 44, 44]
+    S7-spatial_min(小桶) [1, 72, 1, 1]
+    S8-batchx64(大桶) [64, 72, 44, 44]
 
 ====================================================================================
 CASE: Det_cases/ssd_ssdlite_mobilenet_v3_large_320_coco/SIR_31.py
 inspec (动态编译入口): [-1, 120, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 120, 40, 40]          PASS                    2  5101.83
-S1-batchx2                [2, 120, 40, 40]          PASS                    0    61.57
-S2-spatial/2              [1, 120, 20, 20]          PASS                    0     0.67
-S3-spatialx1.5            [1, 120, 60, 60]          PASS                    0     0.52
-S4-batchx2-spatial/2      [2, 120, 20, 20]          PASS                    0     0.52
-S5-batchx4                [4, 120, 40, 40]          PASS                    0    60.70
-S6-batchx2(repeat->缓存)    [2, 120, 40, 40]          PASS                    0     0.75
+S0-baseline               [1, 120, 40, 40]          PASS                    2  4869.44
+S1-batchx2                [2, 120, 40, 40]          PASS                    0    61.35
+S2-spatial/2              [1, 120, 20, 20]          PASS                    0     0.72
+S3-spatialx1.5            [1, 120, 60, 60]          PASS                    0     0.54
+S4-batchx2-spatial/2      [2, 120, 20, 20]          PASS                    0     0.62
+S5-batchx4                [4, 120, 40, 40]          PASS                    0    61.12
+S6-batchx2(repeat->缓存)    [2, 120, 40, 40]          PASS                    0     0.79
+S7-spatial_min(小桶)        [1, 120, 1, 1]            PASS                    0     0.61
+S8-batchx64(大桶)           [64, 120, 40, 40]         PASS                    0    61.28
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 120, 40, 40]']
 未触发(复用已编译)的 shape:
@@ -124,21 +142,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 120, 20, 20]
     S5-batchx4 [4, 120, 40, 40]
     S6-batchx2(repeat->缓存) [2, 120, 40, 40]
+    S7-spatial_min(小桶) [1, 120, 1, 1]
+    S8-batchx64(大桶) [64, 120, 40, 40]
 
 ====================================================================================
 CASE: Det_cases/yolov3_yolov3_mobilenet_v3_large_ssld_270e_voc/SIR_64.py
 inspec (动态编译入口): [-1, 480, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 480, 38, 38]          PASS                    2  4953.18
-S1-batchx2                [2, 480, 38, 38]          PASS                    0    62.23
-S2-spatial/2              [1, 480, 19, 19]          PASS                    0     0.77
-S3-spatialx1.5            [1, 480, 57, 57]          PASS                    0     0.52
-S4-batchx2-spatial/2      [2, 480, 19, 19]          PASS                    0     0.74
-S5-batchx4                [4, 480, 38, 38]          PASS                    0    62.46
-S6-batchx2(repeat->缓存)    [2, 480, 38, 38]          PASS                    0     0.77
+S0-baseline               [1, 480, 38, 38]          PASS                    2  4949.99
+S1-batchx2                [2, 480, 38, 38]          PASS                    0    61.76
+S2-spatial/2              [1, 480, 19, 19]          PASS                    0     0.82
+S3-spatialx1.5            [1, 480, 57, 57]          PASS                    0     0.64
+S4-batchx2-spatial/2      [2, 480, 19, 19]          PASS                    0     0.77
+S5-batchx4                [4, 480, 38, 38]          PASS                    0    61.19
+S6-batchx2(repeat->缓存)    [2, 480, 38, 38]          PASS                    0     0.88
+S7-spatial_min(小桶)        [1, 480, 1, 1]            PASS                    0     0.79
+S8-batchx64(大桶)           [64, 480, 38, 38]         PASS                    0    63.10
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 480, 38, 38]']
 未触发(复用已编译)的 shape:
@@ -148,21 +170,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 480, 19, 19]
     S5-batchx4 [4, 480, 38, 38]
     S6-batchx2(repeat->缓存) [2, 480, 38, 38]
+    S7-spatial_min(小桶) [1, 480, 1, 1]
+    S8-batchx64(大桶) [64, 480, 38, 38]
 
 ====================================================================================
 CASE: Det_cases/centernet_centernet_mbv3_large_140e_coco/SIR_22.py
 inspec (动态编译入口): [-1, 72, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 72, 64, 64]           PASS                    0   127.36
-S1-batchx2                [2, 72, 64, 64]           PASS                    0    62.17
-S2-spatial/2              [1, 72, 32, 32]           PASS                    0     0.69
-S3-spatialx1.5            [1, 72, 96, 96]           PASS                    0     0.46
-S4-batchx2-spatial/2      [2, 72, 32, 32]           PASS                    0     0.51
-S5-batchx4                [4, 72, 64, 64]           PASS                    0    62.92
-S6-batchx2(repeat->缓存)    [2, 72, 64, 64]           PASS                    0     0.75
+S0-baseline               [1, 72, 64, 64]           PASS                    0   221.94
+S1-batchx2                [2, 72, 64, 64]           PASS                    0    60.85
+S2-spatial/2              [1, 72, 32, 32]           PASS                    0     0.74
+S3-spatialx1.5            [1, 72, 96, 96]           PASS                    0     0.50
+S4-batchx2-spatial/2      [2, 72, 32, 32]           PASS                    0     0.59
+S5-batchx4                [4, 72, 64, 64]           PASS                    0    62.26
+S6-batchx2(repeat->缓存)    [2, 72, 64, 64]           PASS                    0     0.81
+S7-spatial_min(小桶)        [1, 72, 1, 1]             PASS                    0     0.68
+S8-batchx64(大桶)           [64, 72, 64, 64]          PASS                    0    61.67
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 0 (全部命中编译缓存)
 触发 codegen 的 shape:    []
 未触发(复用已编译)的 shape:
@@ -173,21 +199,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 72, 32, 32]
     S5-batchx4 [4, 72, 64, 64]
     S6-batchx2(repeat->缓存) [2, 72, 64, 64]
+    S7-spatial_min(小桶) [1, 72, 1, 1]
+    S8-batchx64(大桶) [64, 72, 64, 64]
 
 ====================================================================================
 CASE: Det_cases/ppyolo_ppyolo_tiny_650e_coco/SIR_31.py
 inspec (动态编译入口): [-1, 64, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 64, 56, 56]           PASS                    2  4960.89
-S1-batchx2                [2, 64, 56, 56]           PASS                    0    60.16
-S2-spatial/2              [1, 64, 28, 28]           PASS                    0     0.61
-S3-spatialx1.5            [1, 64, 84, 84]           PASS                    0     0.42
-S4-batchx2-spatial/2      [2, 64, 28, 28]           PASS                    0     0.43
-S5-batchx4                [4, 64, 56, 56]           PASS                    0    61.87
-S6-batchx2(repeat->缓存)    [2, 64, 56, 56]           PASS                    0     0.67
+S0-baseline               [1, 64, 56, 56]           PASS                    2  4915.62
+S1-batchx2                [2, 64, 56, 56]           PASS                    0    61.27
+S2-spatial/2              [1, 64, 28, 28]           PASS                    0     0.71
+S3-spatialx1.5            [1, 64, 84, 84]           PASS                    0     0.47
+S4-batchx2-spatial/2      [2, 64, 28, 28]           PASS                    0     0.48
+S5-batchx4                [4, 64, 56, 56]           PASS                    0    61.33
+S6-batchx2(repeat->缓存)    [2, 64, 56, 56]           PASS                    0     0.74
+S7-spatial_min(小桶)        [1, 64, 1, 1]             PASS                    0     0.58
+S8-batchx64(大桶)           [64, 64, 56, 56]          PASS                    0    61.39
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 64, 56, 56]']
 未触发(复用已编译)的 shape:
@@ -197,21 +227,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 64, 28, 28]
     S5-batchx4 [4, 64, 56, 56]
     S6-batchx2(repeat->缓存) [2, 64, 56, 56]
+    S7-spatial_min(小桶) [1, 64, 1, 1]
+    S8-batchx64(大桶) [64, 64, 56, 56]
 
 ====================================================================================
 CASE: Det_cases/ppyolo_ppyolo_mbv3_small_coco/SIR_49.py
 inspec (动态编译入口): [-1, 240, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 240, 20, 20]          PASS                    2  5047.61
-S1-batchx2                [2, 240, 20, 20]          PASS                    0    60.35
-S2-spatial/2              [1, 240, 10, 10]          PASS                    0     0.64
-S3-spatialx1.5            [1, 240, 30, 30]          PASS                    0     0.51
+S0-baseline               [1, 240, 20, 20]          PASS                    2  4883.33
+S1-batchx2                [2, 240, 20, 20]          PASS                    0    61.24
+S2-spatial/2              [1, 240, 10, 10]          PASS                    0     0.65
+S3-spatialx1.5            [1, 240, 30, 30]          PASS                    0     0.45
 S4-batchx2-spatial/2      [2, 240, 10, 10]          PASS                    0     0.42
-S5-batchx4                [4, 240, 20, 20]          PASS                    0    60.58
-S6-batchx2(repeat->缓存)    [2, 240, 20, 20]          PASS                    0     0.60
+S5-batchx4                [4, 240, 20, 20]          PASS                    0    61.53
+S6-batchx2(repeat->缓存)    [2, 240, 20, 20]          PASS                    0     0.68
+S7-spatial_min(小桶)        [1, 240, 1, 1]            PASS                    0     0.47
+S8-batchx64(大桶)           [64, 240, 20, 20]         PASS                    0    61.91
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 240, 20, 20]']
 未触发(复用已编译)的 shape:
@@ -221,21 +255,25 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 240, 10, 10]
     S5-batchx4 [4, 240, 20, 20]
     S6-batchx2(repeat->缓存) [2, 240, 20, 20]
+    S7-spatial_min(小桶) [1, 240, 1, 1]
+    S8-batchx64(大桶) [64, 240, 20, 20]
 
 ====================================================================================
 CASE: Det_cases/ppyolo_ppyolo_mbv3_large_coco/SIR_77.py
 inspec (动态编译入口): [-1, 960, -1, -1]
 ------------------------------------------------------------------------------------
 variant                   shape                     status            codegen  cinn_ms
-S0-baseline               [1, 960, 10, 10]          PASS                    2  4924.33
-S1-batchx2                [2, 960, 10, 10]          PASS                    0    60.54
-S2-spatial/2              [1, 960, 5, 5]            PASS                    0     0.60
-S3-spatialx1.5            [1, 960, 15, 15]          PASS                    0     0.43
-S4-batchx2-spatial/2      [2, 960, 5, 5]            PASS                    0     0.42
-S5-batchx4                [4, 960, 10, 10]          PASS                    0    61.19
-S6-batchx2(repeat->缓存)    [2, 960, 10, 10]          PASS                    0     0.61
+S0-baseline               [1, 960, 10, 10]          PASS                    2  4922.93
+S1-batchx2                [2, 960, 10, 10]          PASS                    0    61.37
+S2-spatial/2              [1, 960, 5, 5]            PASS                    0     0.74
+S3-spatialx1.5            [1, 960, 15, 15]          PASS                    0     0.52
+S4-batchx2-spatial/2      [2, 960, 5, 5]            PASS                    0     0.49
+S5-batchx4                [4, 960, 10, 10]          PASS                    0    61.59
+S6-batchx2(repeat->缓存)    [2, 960, 10, 10]          PASS                    0     0.77
+S7-spatial_min(小桶)        [1, 960, 1, 1]            PASS                    0     0.55
+S8-batchx64(大桶)           [64, 960, 10, 10]         PASS                    0    61.89
 ------------------------------------------------------------------------------------
-PASS=7  FAIL=0  SKIP=0  (共 7)
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 960, 10, 10]']
 未触发(复用已编译)的 shape:
@@ -245,22 +283,24 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
     S4-batchx2-spatial/2 [2, 960, 5, 5]
     S5-batchx4 [4, 960, 10, 10]
     S6-batchx2(repeat->缓存) [2, 960, 10, 10]
+    S7-spatial_min(小桶) [1, 960, 1, 1]
+    S8-batchx64(大桶) [64, 960, 10, 10]
 
 ####################################################################################
 汇总：同一模型 / 多 shape / CINN 动态形状 + 自动调优
 ####################################################################################
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/picodet_legacy_model_picodet_m_320_coco/SIR_17.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/picodet_legacy_model_picodet_s_320_coco/SIR_17.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/ttfnet_pafnet_lite_mobilenet_v3_20x_coco/SIR_22.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/ssd_ssdlite_mobilenet_v3_large_320_coco/SIR_31.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/yolov3_yolov3_mobilenet_v3_large_ssld_270e_voc/SIR_64.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/centernet_centernet_mbv3_large_140e_coco/SIR_22.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/ppyolo_ppyolo_tiny_650e_coco/SIR_31.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/ppyolo_ppyolo_mbv3_small_coco/SIR_49.py
-[OK  ] PASS=7 FAIL=0 SKIP=0 /7  Det_cases/ppyolo_ppyolo_mbv3_large_coco/SIR_77.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/picodet_legacy_model_picodet_l_640_coco/SIR_17.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/picodet_legacy_model_picodet_m_320_coco/SIR_17.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/picodet_legacy_model_picodet_s_320_coco/SIR_17.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/ttfnet_pafnet_lite_mobilenet_v3_20x_coco/SIR_22.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/ssd_ssdlite_mobilenet_v3_large_320_coco/SIR_31.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/yolov3_yolov3_mobilenet_v3_large_ssld_270e_voc/SIR_64.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/centernet_centernet_mbv3_large_140e_coco/SIR_22.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/ppyolo_ppyolo_tiny_650e_coco/SIR_31.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/ppyolo_ppyolo_mbv3_small_coco/SIR_49.py
+[OK  ] PASS=9 FAIL=0 SKIP=0 /9  Det_cases/ppyolo_ppyolo_mbv3_large_coco/SIR_77.py
 ------------------------------------------------------------------------------------
-总计 shape 通过: 70/70，覆盖 10 个模型子图
-全进程 codegen 事件合计: 17（每个 case 各自编译，与 shape 个数无关；源码见 /tmp/cinn_codegen_g9ln5jwr/cinn_source.cu）
+总计 shape 通过: 90/90，覆盖 10 个模型子图
+全进程 codegen 事件合计: 17（每个 case 各自编译，与 shape 个数无关；源码见 /tmp/cinn_codegen_j7kijhvn/cinn_source.cu）
 最终判定: 全部通过 (exit 0)
 EXIT=0

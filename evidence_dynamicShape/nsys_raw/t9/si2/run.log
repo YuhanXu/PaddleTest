@@ -1,0 +1,12 @@
+W0907 06:07:01.499673 146151 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+DB: /tmp/t9/db INPUTSPEC: [(-1, 72, -1, -1)]
+I0907 06:07:01.601754 146151 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0907 06:07:01.780267 146239 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/t9/si2/src.cu"
+I0907 06:07:06.758143 146151 pir_interpreter.cc:1605] New Executor is Running ...
+I0907 06:07:06.758738 146151 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+RAN: [1, 72, 88, 88] iters: 55
+DONE
+Generating '/tmp/nsys-report-be18.qdstrm'
+[1/1] [0%                          ] rep.nsys-rep[1/1] [0%                          ] rep.nsys-rep[1/1] [==========49%               ] rep.nsys-rep[1/1] [========================98% ] rep.nsys-rep[1/1] [========================99% ] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep[1/1] [0%                          ] rep.nsys-rep[1/1] [8%                          ] rep.nsys-rep[1/1] [===========53%              ] rep.nsys-rep[1/1] [============54%             ] rep.nsys-rep[1/1] [============56%             ] rep.nsys-rep[1/1] [============57%             ] rep.nsys-rep[1/1] [=============58%            ] rep.nsys-rep[1/1] [================68%         ] rep.nsys-rep[1/1] [================70%         ] rep.nsys-rep[1/1] [=================73%        ] rep.nsys-rep[1/1] [=================74%        ] rep.nsys-rep[1/1] [==================75%       ] rep.nsys-rep[1/1] [==================76%       ] rep.nsys-rep[1/1] [==================77%       ] rep.nsys-rep[1/1] [===================79%      ] rep.nsys-rep[1/1] [===================82%      ] rep.nsys-rep[1/1] [=======================93%  ] rep.nsys-rep[1/1] [=======================94%  ] rep.nsys-rep[1/1] [========================97% ] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep[1/1] [========================100%] rep.nsys-rep
+Generated:
+    /tmp/t9/si2/rep.nsys-rep

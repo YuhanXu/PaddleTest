@@ -1,0 +1,11 @@
+W0905 06:06:28.803499 146577 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+MODE: static INPUTSPEC: [(1, 72, 88, 88)]
+I0905 06:06:28.911592 146577 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0905 06:06:33.869707 146577 pir_interpreter.cc:1605] New Executor is Running ...
+I0905 06:06:33.870303 146577 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+RAN: [1, 72, 88, 88] iters: 55
+DONE
+Generating '/tmp/nsys-report-8375.qdstrm'
+[1/1] [0%                          ] rep_static.nsys-rep[1/1] [0%                          ] rep_static.nsys-rep[1/1] [==========48%               ] rep_static.nsys-rep[1/1] [=======================96%  ] rep_static.nsys-rep[1/1] [========================98% ] rep_static.nsys-rep[1/1] [========================100%] rep_static.nsys-rep[1/1] [0%                          ] rep_static.nsys-rep[1/1] [10%                         ] rep_static.nsys-rep[1/1] [============54%             ] rep_static.nsys-rep[1/1] [============55%             ] rep_static.nsys-rep[1/1] [============56%             ] rep_static.nsys-rep[1/1] [=============58%            ] rep_static.nsys-rep[1/1] [=============59%            ] rep_static.nsys-rep[1/1] [===============65%          ] rep_static.nsys-rep[1/1] [================68%         ] rep_static.nsys-rep[1/1] [================71%         ] rep_static.nsys-rep[1/1] [=================72%        ] rep_static.nsys-rep[1/1] [=================73%        ] rep_static.nsys-rep[1/1] [=================74%        ] rep_static.nsys-rep[1/1] [==================77%       ] rep_static.nsys-rep[1/1] [===================79%      ] rep_static.nsys-rep[1/1] [======================92%   ] rep_static.nsys-rep[1/1] [=======================96%  ] rep_static.nsys-rep[1/1] [========================100%] rep_static.nsys-rep[1/1] [========================100%] rep_static.nsys-rep[1/1] [========================100%] rep_static.nsys-rep
+Generated:
+    /tmp/e4/rep_static.nsys-rep

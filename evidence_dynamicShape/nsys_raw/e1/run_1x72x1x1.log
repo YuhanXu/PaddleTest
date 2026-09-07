@@ -1,0 +1,12 @@
+W0904 11:09:37.126669 96233 gpu_resources.cc:116] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.2, Runtime API Version: 12.9
+INPUTSPEC: [(-1, 72, -1, -1)]
+I0904 11:09:37.236070 96233 add_cinn_pass.cc:334] Compiling subgraph with CINN backend ...
+I0904 11:09:37.383324 96321 compiler.cc:222] The CINN auto generated source code will writing into file: "/tmp/e1/src_1x72x1x1.cu"
+I0904 11:09:42.196992 96233 pir_interpreter.cc:1605] New Executor is Running ...
+I0904 11:09:42.197590 96233 pir_interpreter.cc:1629] pir interpreter is running by multi-thread mode ...
+RAN: [1, 72, 1, 1] -> out shapes: [[1, 72, 1, 1]]
+DONE
+Generating '/tmp/nsys-report-d85d.qdstrm'
+[1/1] [0%                          ] rep_1x72x1x1.nsys-rep[1/1] [0%                          ] rep_1x72x1x1.nsys-rep[1/1] [===========50%              ] rep_1x72x1x1.nsys-rep[1/1] [========================100%] rep_1x72x1x1.nsys-rep[1/1] [5%                          ] rep_1x72x1x1.nsys-rep[1/1] [0%                          ] rep_1x72x1x1.nsys-rep[1/1] [7%                          ] rep_1x72x1x1.nsys-rep[1/1] [===========53%              ] rep_1x72x1x1.nsys-rep[1/1] [============54%             ] rep_1x72x1x1.nsys-rep[1/1] [============55%             ] rep_1x72x1x1.nsys-rep[1/1] [============57%             ] rep_1x72x1x1.nsys-rep[1/1] [=============58%            ] rep_1x72x1x1.nsys-rep[1/1] [=============59%            ] rep_1x72x1x1.nsys-rep[1/1] [================68%         ] rep_1x72x1x1.nsys-rep[1/1] [================71%         ] rep_1x72x1x1.nsys-rep[1/1] [=================72%        ] rep_1x72x1x1.nsys-rep[1/1] [=================73%        ] rep_1x72x1x1.nsys-rep[1/1] [=================74%        ] rep_1x72x1x1.nsys-rep[1/1] [==================75%       ] rep_1x72x1x1.nsys-rep[1/1] [==================77%       ] rep_1x72x1x1.nsys-rep[1/1] [==================78%       ] rep_1x72x1x1.nsys-rep[1/1] [===================80%      ] rep_1x72x1x1.nsys-rep[1/1] [=======================93%  ] rep_1x72x1x1.nsys-rep[1/1] [=======================94%  ] rep_1x72x1x1.nsys-rep[1/1] [========================98% ] rep_1x72x1x1.nsys-rep[1/1] [========================100%] rep_1x72x1x1.nsys-rep[1/1] [========================100%] rep_1x72x1x1.nsys-rep[1/1] [========================100%] rep_1x72x1x1.nsys-rep
+Generated:
+    /tmp/e1/rep_1x72x1x1.nsys-rep

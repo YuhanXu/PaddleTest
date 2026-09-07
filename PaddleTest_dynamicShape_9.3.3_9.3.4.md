@@ -76,8 +76,8 @@ net_cinn = paddle.jit.to_static(
 
 ### 步骤 4：遍历 shape 变体矩阵
 
-在动态维 N/H/W 上按 (batch 因子, spatial 因子) 缩放，固定维 C 不变，共 7 组
-（脚本 `VARIANTS`，第 62-70 行）：
+在动态维 N/H/W 上按 (batch 因子, spatial 因子) 缩放，固定维 C 不变，共 9 组
+（脚本 `VARIANTS`；S0~S6 为原始 7 组，S7/S8 为 2026-09-07 追加的跨桶边界变体）：
 
 | 组别 | 因子 (batch, spatial) | 以 picodet_l_640 为例 | 覆盖点 |
 |------|----------------------|----------------------|--------|
@@ -88,6 +88,8 @@ net_cinn = paddle.jit.to_static(
 | S4 | (2, 0.5) | [2, 72, 44, 44] | 多维同时变化 |
 | S5 | (4, 1) | [4, 72, 88, 88] | batch 进一步放大 |
 | S6 | (2, 1) | [2, 72, 88, 88] | 对照组，重复 S1 |
+| S7 | (1, 0.01) | [1, 72, 1, 1] | 空间维归一，翻入 LE1023 小桶 |
+| S8 | (64, 1) | [64, 72, 88, 88] | batch×64，翻入 GE1024 大桶 |
 
 缩放后向下取整并保底为 1（`max(1, int(round(...)))`），避免小分辨率子图被缩成 0 维。
 
@@ -501,6 +503,30 @@ kernel 名（名字里就带谓词）与启动配置：
 三次运行的 `FLAGS_cinn_source_code_save_path` 产物 md5 **完全一致**
 （`09c5ab1c800755b6f644f5074f67b1c4`）⇒ 一次编译即产出全部 4 桶，shape 只决定选哪个。
 
+**补测（2026-09-07）：边界 shape 的数值精度。** 上表三个 shape 此前只验证了"派发到
+不同桶 kernel"，未做数值对比（当时主测试的 70/70 PASS 不覆盖这两个边界 shape；
+同日已将其追加为主用例 S7/S8 变体，见步骤 4 与下文）。
+`boundary_shape_acc_probe.py` 以主测试同口径（eager 基准、同 seed、同动态
+inputspec、atol=rtol=1e-5）补测：
+
+| shape | eager vs CINN | max_abs_diff | 判定 |
+|---|---|---|---|
+| `[1,72,1,1]`（group2 翻小桶） | allclose=True | 2.98e-08 | PASS |
+| `[64,72,88,88]`（group1 翻大桶） | allclose=True | 5.96e-08 | PASS |
+
+max_abs_diff 在 float32 机器精度（2^-24 ≈ 6e-8）量级，与主测试其余 shape 变体的精度
+水平一致。至此**每个出现过的 shape 同时具有派发证据与精度证据**。
+
+另需如实说明 shape 的来源与演进：这三个 shape 最初是**测试装置按谓词反推注入的**
+（`bucket_dispatch_probe.py` 的命令行参数），并非 case 文件自带——case 自带张量仅有
+基准 `[1,72,88,88]`，原始 7 个 shape 变体（S0~S6）经逐谓词求值**全部不跨 1023/1024
+桶边界**（group1 恒 `LE1023`、group2 恒 `GE1024`，即每 group 始终命中同一个 kernel）。
+**2026-09-07 已将两个边界 shape 追加为主用例的 S7/S8 变体**并全量重跑：
+10 case × 9 shape = **90/90 PASS**，且每个 case 的 S7/S8 `codegen` 列为 **0**、
+全进程 codegen 合计仍为 17 ⇒ **桶翻转发生在运行期谓词求值，不触发任何重编译**。
+至此主用例自身即同时覆盖"数值正确 + 编译复用 + 跨桶派发"三重证据，本节单 shape
+探针与 T8.4 精度补测保留为独立复现入口。
+
 **(4) 分桶归因于动态 shape（静态负对照）**
 
 同一个 case、同一条 CINN 路径，只把 `input_spec` 换成全静态 `[1,72,88,88]`
@@ -562,7 +588,7 @@ min/max 离散度在 ±5% 内，差异远大于噪声。解读：分桶 schedule
 
 先厘清场景口径：三场景都以 `paddle.jit.to_static(net, backend="CINN")`（动转静
 开 CINN）为共同前提，按 input_spec 与 policy 细分；纯"动态图"（eager，不开
-to_static）**不属于三者之列**——它不经过 CINN 编译，是数值基线（70/70 PASS 的
+to_static）**不属于三者之列**——它不经过 CINN 编译，是数值基线（90/90 PASS 的
 对照方）与 `eager_baseline.log` 的性能参照。
 
 | 场景 | input_spec | policy | 含义 | 产物文件 |
@@ -631,7 +657,7 @@ shape"的泛化成本，与 (5) 的定性一致。另注：default 小桶 `__lau
 ```bash
 cd framework/e2e/PaddleLT_new
 
-# 主用例：10 个 case × 7 个 shape，动态 spec 单次编译
+# 主用例：10 个 case × 9 个 shape（含 S7/S8 跨桶边界变体），动态 spec 单次编译
 python test_dynamic_shape_cinn.py 2>&1 | tee dynamic_shape_cinn.log
 echo "exit=$?"
 ```
@@ -650,7 +676,9 @@ variant                   shape                     status           codegen  ci
 S0-baseline               [1, 72, 88, 88]           PASS                   2  xxxx.xx
 S1-batchx2                [2, 72, 88, 88]           PASS                   0    xx.xx
 ...
-PASS=7  FAIL=0  SKIP=0  (共 7)
+S7-spatial_min(小桶)        [1, 72, 1, 1]             PASS                   0    xx.xx
+S8-batchx64(大桶)           [64, 72, 88, 88]          PASS                   0    xx.xx
+PASS=9  FAIL=0  SKIP=0  (共 9)
 本 case 新增 codegen 事件: 2 (未命中缓存的 group 数)
 触发 codegen 的 shape:    ['S0-baseline [1, 72, 88, 88]']
 未触发(复用已编译)的 shape:
@@ -660,11 +688,12 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 ```
 
 `inspec (动态编译入口)` 与 `触发/未触发 codegen` 两段都带具体 shape，目的是让单份日志
-自身就能读出"一个含 `-1` 的编译入口 + 7 组具体 shape + 只有第一组触发 codegen"这条因果，
+自身就能读出"一个含 `-1` 的编译入口 + 9 组具体 shape + 只有第一组触发 codegen"这条因果，
 不必再对照脚本源码去反查 tag 对应哪个 shape。
 
 `codegen` 列的读法：只有首个 shape 为正（= 该子图 fusion group 数），其余恒为 0
 ⇒ 一次符号化编译服务全部 shape。若某个后续 shape 出现正数，说明发生了 per-shape 重编译。
+**S7/S8 的 codegen 同样为 0** ⇒ 跨桶翻转（运行期谓词求值换 kernel）也不触发重编译。
 
 本轮 10 个 case 的 codegen 分布（全进程合计 17）：
 
@@ -692,10 +721,10 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 无一命中缓存）、分桶 kernel = 24，三个首次前向各 ~5s（完整编译耗时）——
 与实验 2 的"同 C 命中缓存"（codegen 2→4）构成同一枚硬币的两面。
 
-> **图 9.3.3-2**：单 case 明细表截图（体现 7 组 shape 全 PASS）。
+> **图 9.3.3-2**：单 case 明细表截图（体现 9 组 shape 全 PASS）。
 >
 > **图 9.3.3-3**：汇总段截图
-> （10 行 `[OK ]`、`总计 shape 通过: 70/70`、`最终判定: 全部通过 (exit 0)`）。
+> （10 行 `[OK ]`、`总计 shape 通过: 90/90`、`最终判定: 全部通过 (exit 0)`）。
 
 ### 步骤 9：结果归档
 
@@ -703,7 +732,7 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 
 | 文件 | 内容 | 对应步骤 |
 |------|------|---------|
-| `dynamic_shape_cinn.log` | 10 case × 7 shape 全量日志，`exit 0`、70/70 PASS | 步骤 8 |
+| `dynamic_shape_cinn.log` | 10 case × 9 shape（含 S7/S8 跨桶边界变体）全量日志，`exit 0`、90/90 PASS、codegen 合计仍 17 | 步骤 8 |
 | `shape_dialect_after_pass.txt` | `[ShapeDialect]ShapeOptimizationPass Program` 段，含 `shape[S0, 72, S1, S2]` | 步骤 7.1 |
 | `shape_dialect_origin.txt` | `[ShapeDialect]Origin Program` 段（pass 前对照） | 步骤 7.1 |
 | `cinn_source.cu` | CINN 生成的 CUDA 源码，2 group / 8 个分桶 kernel | 步骤 7.3 |
@@ -729,6 +758,8 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 | `optimal_perf_probe.py` / `kern_agg.py` | T9 探针（import 后覆盖 CINN_CONFIG_PATH）+ nsys 聚合 | 步骤 7 续 (6) |
 | `optimal_tile_config.json` / `optimal_src.cu` | T9 双桶最终配置 + 生成的 CUDA 源码（8 kernel） | 步骤 7 续 (6) |
 | `default_src.cu` / `static_src.cu` | 三场景对照另两份源码（规则分桶 / 确切尺寸单 kernel） | 步骤 7 续 (7) |
+| `boundary_shape_acc_probe.py` / `boundary_shape_acc.log` | 边界 shape（[1,72,1,1]/[64,72,88,88]）eager vs CINN 精度补测，双 PASS | 步骤 7 续 (3) |
+| `nsys_raw/`（76 文件，25 MB） | T8.1/T8.3/T9 全部原始 nsys 档案（`.nsys-rep` + trace CSV + run.log + src.cu），本节所有性能数字可由其二进制重放复算（`nsys stats -r cuda_gpu_trace`） | 步骤 7 续 (3)(5)(6)(7) |
 
 连同步骤 1 的环境自检输出与 5 张截图，共同构成本指标的证据链。
 观测编译行为时用步骤 7.4 的 codegen 事件计数（`extern "C" {` 块数）配合
@@ -739,19 +770,21 @@ PASS=7  FAIL=0  SKIP=0  (共 7)
 以下 5 条全部满足即判定技术指标 3 合格。
 
 **判据 1（功能正确性，必过）**
-同一份权重、同一次 CINN 动态编译入口下，每个 case 的 S0~S6 共 7 组 shape 全部为 `PASS`，
-不允许出现 `FAIL:numeric`、`FAIL:cinn`、`SKIP:shape` 中的任何一种。10 个 case 合计 **70/70 PASS**。
+同一份权重、同一次 CINN 动态编译入口下，每个 case 的 S0~S8 共 9 组 shape
+（含 S7/S8 两个跨桶边界变体）全部为 `PASS`，
+不允许出现 `FAIL:numeric`、`FAIL:cinn`、`SKIP:shape` 中的任何一种。10 个 case 合计 **90/90 PASS**。
 
 **判据 2（数值精度，必过）**
 CINN 输出与动态图 eager 输出满足 `assert_allclose(atol=1e-5, rtol=1e-5)`，逐输出张量比对。
 数值不一致一律判失败，不得降级为跳过。
 
 **判据 3（动态场景覆盖度，必过）**
-shape 变体必须同时覆盖三类动态变化：
+shape 变体必须同时覆盖三类动态变化，并覆盖跨桶边界：
 
-- batch 维单独变化（S1、S5）
-- 空间维单独变化，含缩小与放大（S2、S3）
+- batch 维单独变化（S1、S5、**S8**）
+- 空间维单独变化，含缩小、放大与归一（S2、S3、**S7**）
 - batch 与空间维同时变化（S4）
+- **跨 1023/1024 桶边界**（S7 翻入小桶、S8 翻入大桶），且翻桶不触发重编译
 
 **判据 4（shape 符号化可验证，必过）**
 必须提供中间 IR 与编译产物层面的证据（步骤 7），而非仅凭日志计数或耗时推断。四条均已实测取得：

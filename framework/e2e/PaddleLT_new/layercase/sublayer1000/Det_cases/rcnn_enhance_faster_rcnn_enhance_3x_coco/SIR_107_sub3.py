@@ -1,4 +1,8 @@
-# api:paddle.tensor.manipulation.split||api:paddle.tensor.manipulation.split||method:__add__||method:__truediv__||method:__add__||method:__truediv__||method:__sub__||method:__sub__||method:__add__||method:__truediv__||method:__add__||method:__truediv__||method:__sub__||method:__sub__||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.minimum||api:paddle.tensor.math.maximum||api:paddle.tensor.math.maximum||method:__sub__||method:__sub__||method:__mul__||api:paddle.tensor.logic.greater_than||method:__mul__||api:paddle.tensor.logic.greater_than||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__add__||method:__sub__||method:__add__||method:__truediv__||method:__sub__||method:__sub__||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__add__||method:__sub__||method:__sub__||method:__mul__||method:__sub__||method:__sub__||method:__mul__||method:__add__||method:__add__||method:__add__||method:__truediv__||method:__truediv__||method:__truediv__||api:paddle.tensor.ops.atan||api:paddle.tensor.ops.atan||method:__sub__||method:__rmul__||method:__mul__||method:__rsub__||method:__add__||method:__add__||method:__truediv__||method:__mul__||method:__rsub__||method:__add__||method:__add__||method:__mul__||api:paddle.tensor.stat.mean||method:__mul__
+# CINN Kernel 2: fn_gs_bc_bc_max_..._sum_gs_cast_div_scale (IoU+CIoU 前向)
+# IoU 交集/并集 + CIoU 中心距离 + 宽高比 + loss
+# 融合类型: Elementwise(mul,cast,greater_than) + Broadcast(max,min,sub,add,div) + Reduce(sum/mean)
+# 包含原始 SIR_107.py 全部前向计算, 两个输入 stop_gradient=True (仅前向, 无反向)
+# 会产生 3 个 CINN kernel (kernel 5 + kernel 6 + kernel 2), 其中 kernel 2 是目标
 import paddle
 import unittest
 import numpy as np
@@ -7,9 +11,10 @@ import numpy as np
 class LayerCase(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
+
     def forward(
         self,
-        var_0,    # (shape: [24], dtype: paddle.float32, stop_gradient: False)
+        var_0,    # (shape: [24], dtype: paddle.float32, stop_gradient: True)
         var_1,    # (shape: [24], dtype: paddle.float32, stop_gradient: True)
     ):
         out = paddle.tensor.manipulation.split(var_0, num_or_sections=4, axis=-1)
@@ -80,8 +85,8 @@ class LayerCase(paddle.nn.Layer):
         var_65 = var_63.__truediv__(var_64)
         var_66 = var_20.__truediv__(var_21)
         var_67 = var_14.__truediv__(var_15)
-        var_68 = paddle.atan(var_66)
-        var_69 = paddle.atan(var_67)
+        var_68 = paddle.tensor.ops.atan(var_66)
+        var_69 = paddle.tensor.ops.atan(var_67)
         var_70 = var_68.__sub__(var_69)
         var_71 = var_70.__rmul__(0.4052847345693511)
         var_72 = var_71.__mul__(var_70)
@@ -99,19 +104,21 @@ class LayerCase(paddle.nn.Layer):
         return var_83
 
 
-
 def create_inputspec():
     inputspec = (
-        paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=False),
-        paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=False),
+        paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=True),
+        paddle.static.InputSpec(shape=(-1,), dtype=paddle.float32, stop_gradient=True),
     )
     return inputspec
+
 
 def create_tensor_inputs():
     inputs = (
         paddle.rand(shape=[24], dtype=paddle.float32),
         paddle.rand(shape=[24], dtype=paddle.float32),
     )
+    inputs[0].stop_gradient = True
+    inputs[1].stop_gradient = True
     return inputs
 
 
@@ -127,6 +134,7 @@ class TestLayer(unittest.TestCase):
     def setUp(self):
         self.inputs = create_tensor_inputs()
         self.net = LayerCase()
+
     def train(self, net, to_static, with_prim=False, with_cinn=False):
         if to_static:
             paddle.base.core._set_prim_all_enabled(with_prim)
@@ -138,6 +146,7 @@ class TestLayer(unittest.TestCase):
         paddle.seed(123)
         outs = net(*self.inputs)
         return outs
+
     def test_ast_prim_cinn(self):
         st_out = self.train(self.net, to_static=True)
         cinn_out = self.train(self.net, to_static=True, with_prim=True, with_cinn=True)
