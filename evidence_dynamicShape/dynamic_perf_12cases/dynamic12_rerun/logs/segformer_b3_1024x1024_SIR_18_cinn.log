@@ -1,0 +1,18 @@
+2026-10-08 09:59:14,607-PaddleLT-[INFO] ===> log path: /work/PaddleTest/framework/e2e/PaddleLT_new/out_2026_10_08_09_59_14_607652.log
+2026-10-08 09:59:14,607-PaddleLT-[INFO] ===> LayerTest.__init__ 中 device_place_id is: 0
+2026-10-08 09:59:14,612-PaddleLT-[INFO] ===> 测试case名称: segformer_b3_1024x1024_SIR_18_cinn
+2026-10-08 09:59:14,612-PaddleLT-[INFO] ===> 性能测试执行器: dy2st_eval_cinn_perf
+W1008 09:59:18.075408 52875 gpu_resources.cc:114] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.0, Runtime API Version: 12.9
+2026-10-08 09:59:18,078-LayerEvalBM-[INFO] ===> log path: /work/PaddleTest/framework/e2e/PaddleLT_new/out_2026_10_08_09_59_18_077938.log
+I1008 09:59:18.355552 52875 auto_layout_pass.cc:66] end IsNeedAllTranspose conv_count_: 0 transpose_count_: 0 transpose_scale_ * transpose_count_: 0
+I1008 09:59:18.363320 52875 add_cinn_pass.cc:330] Compiling subgraph with CINN backend ...
+W1008 09:59:18.369539 52875 pattern_rewrite_driver.cc:235] The pattern rewrite did not converge after scanning 10 times
+W1008 09:59:18.371562 52875 pattern_rewrite_driver.cc:235] The pattern rewrite did not converge after scanning 10 times
+I1008 09:59:18.375341 52875 build_cinn_pass.cc:71] Time of building group ops (size=75): 0 min 0 s 3 ms
+I1008 09:59:18.423203 52875 add_cinn_pass.cc:355] FusionOp count before lowering : *****[ 9 ]*****
+I1008 09:59:18.511391 53039 compiler.cc:208] The CINN auto generated source code will writing into file: "/work/dynamic12_rerun/kernel/segformer_b3_1024x1024_SIR_18.cu"
+I1008 09:59:41.511814 52875 add_cinn_pass.cc:372] Time of lowering and compiling program: ***** [ 23 ] ***** seconds.
+I1008 09:59:41.511905 52875 add_cinn_pass.cc:376] Number of ops in the original program is: 114, after lowering it becomes: 31. (compression ratio: 31/114 = 0.27193)
+I1008 09:59:41.521818 52875 pir_interpreter.cc:1601] New Executor is Running ...
+I1008 09:59:41.523524 52875 pir_interpreter.cc:1622] pir interpreter is running by trace mode ...
+2026-10-08 09:59:43,935-PaddleLT-[INFO] ===> 用例 segformer_b3_1024x1024_SIR_18_cinn 多执行器性能结果: {'dy2st_eval_cinn_perf': 0.110794}

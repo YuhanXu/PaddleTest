@@ -1,0 +1,101 @@
+case,shape_mode,n_dyn_dims,inputspec,dy_eval_perf,dy2st_eval_cinn_perf,speedup,status
+layercase^sublayer1000^Det_cases^tood_tood_r50_fpn_1x_coco^SIR_34,static,0,,0.233089,0.023859,9.769,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_35,dynamic,20,"[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1]",0.198479,0.029193,6.799,OK
+layercase^sublayer1000^Det_cases^ppyoloe_ppyoloe_plus_crn_l_80e_coco^SIR_167,static,0,,0.140451,0.033252,4.224,OK
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_48,unknown,-1,ERR: module 'case_mod_3' has no attribute 'create_inputspec',0.235622,0.036851,6.394,OK
+layercase^sublayer1000^Det_cases^yolox_yolox_x_300e_coco^SIR_122,dynamic,27,"[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.247085,0.042504,5.813,OK
+layercase^sublayer1000^Det_cases^yolox_yolox_nano_300e_coco^SIR_126,dynamic,27,"[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.253656,0.043847,5.785,OK
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_37,unknown,-1,ERR: module 'case_mod_6' has no attribute 'create_inputspec',0.15527,0.036672,4.234,OK
+layercase^sublayer1000^Det_cases^yolox_yolox_m_300e_coco^SIR_123,dynamic,27,"[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.337553,0.050792,6.646,OK
+layercase^sublayer1000^Det_cases^yolox_yolox_crn_s_300e_coco^SIR_201,dynamic,27,"[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.249387,0.044027,5.664,OK
+layercase^sublayer1000^Det_cases^rotate_ppyoloe_r_ppyoloe_r_crn_m_3x_dota_ms^SIR_168,dynamic,12,"[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1]",0.119713,0.02423,4.941,OK
+layercase^sublayer1000^Det_cases^yolox_yolox_cdn_tiny_300e_coco^SIR_125,dynamic,27,"[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.252702,0.043092,5.864,OK
+layercase^sublayer1000^Det_cases^rotate_ppyoloe_r_ppyoloe_r_crn_s_3x_dota^SIR_169,dynamic,12,"[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1]",0.121154,0.025011,4.844,OK
+layercase^sublayer1000^Det_cases^rotate_ppyoloe_r_ppyoloe_r_crn_x_3x_dota^SIR_167,dynamic,12,"[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1]",0.133966,0.02485,5.391,OK
+layercase^sublayer1000^Det_cases^rotate_ppyoloe_r_ppyoloe_r_crn_l_3x_dota^SIR_167,dynamic,12,"[-1, -1, -1, -1];[-1, -1, -1, -1];[-1, -1, -1, -1]",0.125757,0.024284,5.179,OK
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107_sub6,dynamic,2,[-1];[-1],0.064357,0.019594,3.285,OK
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107,dynamic,2,[-1];[-1],0.087265,0.019817,4.404,OK
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107_sub3,dynamic,2,[-1];[-1],0.122767,0.02181,5.629,OK
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107_sub4,dynamic,2,[-1];[-1],0.102981,0.018971,5.428,OK
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_12,unknown,-1,ERR: module 'case_mod_18' has no attribute 'create_inputspec',0.098165,0.033501,2.930,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_m_416_coco^SIR_348,dynamic,4,"[-1, -1];[-1, -1]",0.035854,0.019317,1.856,OK
+layercase^sublayer1000^Det_cases^gfl_gfl_r50_fpn_1x_coco^SIR_140,dynamic,4,"[-1, -1];[-1, -1]",0.037196,0.019523,1.905,OK
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107_sub5,dynamic,2,[-1];[-1],0.050009,0.020028,2.497,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_l_320_coco^SIR_341,dynamic,4,"[-1, -1];[-1, -1]",0.066766,0.021684,3.079,OK
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_74,dynamic,5,"[-1, -1, -1];[-1, -1]",0.073682,0.027148,2.714,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_s_416_coco^SIR_250,static,0,,0.031736,0.014523,2.185,OK
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_63,dynamic,9,"[-1, -1, -1];[-1, -1, -1, -1];[-1, -1]",0.05745,0.027755,2.070,OK
+layercase^sublayer1000^Det_cases^retinanet_retinanet_r101_fpn_2x_coco^SIR_34,dynamic,15,"[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1]",0.940768,0.546697,1.721,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_s_416_coco^SIR_285,dynamic,4,"[-1, -1];[-1, -1]",0.036216,0.019819,1.827,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_s_416_coco^SIR_295,dynamic,4,"[-1, -1];[-1, -1]",0.036225,0.020061,1.806,OK
+layercase^sublayer1000^Det_cases^semi_det_baseline_retinanet_r50_fpn_2x_coco_sup010^SIR_34,dynamic,15,"[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1]",0.96857,0.551404,1.757,OK
+layercase^sublayer1000^Det_cases^retinanet_retinanet_r50_fpn_1x_coco^SIR_34,dynamic,15,"[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1]",0.96256,0.561519,1.714,OK
+layercase^sublayer1000^Clas_cases^Twins_alt_gvt_base^SIR_247,dynamic,3,"[-1, -1, -1]",0.052752,0.065281,0.808,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_14,unknown,-1,ERR: module 'case_mod_32' has no attribute 'create_inputspec',0.144201,0.108514,1.329,OK
+layercase^sublayer1000^Det_cases^vitdet_ppyoloe_vit_base_csppan_cae_36e_coco^SIR_6,dynamic,2,"[-1, -1, 768]",0.081596,0.046759,1.745,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_m_416_coco^SIR_349,dynamic,4,"[-1, -1];[-1];[-1]",0.030345,0.026649,1.139,OK
+layercase^sublayer1000^Ocr_cases^det_ch_PP_OCRv3_ch_PP_OCRv3_det_cml^SIR_53,dynamic,12,"[-1, 16, -1, -1];[-1, 24, -1, -1];[-1, 56, -1, -1];[-1, 480, -1, -1]",0.529299,0.372472,1.421,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x512_160k^SIR_38,dynamic,2,"[-1, -1, 256]",0.052071,0.034055,1.529,OK
+layercase^sublayer1000^Clas_cases^SqueezeNet_SqueezeNet1_0^SIR_2,dynamic,3,"[-1, 3, -1, -1]",0.656535,0.420655,1.561,OK
+layercase^sublayer1000^Clas_cases^SqueezeNet_SqueezeNet1_0^SIR_1,dynamic,3,"[-1, 3, -1, -1]",0.752753,0.419727,1.793,OK
+layercase^sublayer1000^Det_cases^ssd_ssd_vgg16_300_240e_voc^SIR_3,dynamic,18,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 512, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1];[-1, 256, -1, -1]",0.272394,0.179274,1.519,OK
+layercase^sublayer1000^Det_cases^mot_jde_jde_darknet53_30e_864x480^SIR_75,dynamic,9,[-1];[-1];[-1];[-1];[-1];[-1];[-1];[-1];[-1],0.116733,0.047767,2.444,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b3_cityscapes_1024x512_160k^SIR_106,dynamic,2,"[-1, -1, 512]",0.06628,0.03668,1.807,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_10,dynamic,7,"[-1, 16, -1, -1];[-1, -1, -1, -1]",0.324878,0.210409,1.544,OK
+layercase^sublayer1000^Det_cases^retinanet_retinanet_r50_fpn_1x_coco^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.183993,0.144755,1.271,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet_ch^SIR_55,dynamic,2,"[-1, -1, 256]",0.050191,0.03795,1.323,OK
+layercase^sublayer1000^Det_cases^ppyolo_ppyolov2_r101vd_dcn_365e_coco^SIR_88,dynamic,45,"[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1]",0.028229,0.031831,0.887,OK
+layercase^sublayer1000^Clas_cases^SqueezeNet_SqueezeNet1_0^SIR_3,dynamic,3,"[-1, 3, -1, -1]",0.648316,0.435076,1.490,OK
+layercase^sublayer1000^Det_cases^ssd_ssd_vgg16_300_240e_voc^SIR_2,dynamic,3,"[-1, 3, -1, -1]",0.513445,0.367553,1.397,OK
+layercase^sublayer1000^Ocr_cases^det_ch_PP_OCRv3_ch_PP_OCRv3_det_cml^SIR_30,dynamic,12,"[-1, 16, -1, -1];[-1, 24, -1, -1];[-1, 56, -1, -1];[-1, 480, -1, -1]",0.549456,0.487175,1.128,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x512_160k^SIR_26,unknown,-1,ERR: module 'case_mod_49' has no attribute 'create_inputspec',0.094231,0.067339,1.399,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet^SIR_57,dynamic,2,"[-1, -1, 128]",0.046118,0.034812,1.325,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_21,dynamic,7,"[-1, 32, -1, -1];[-1, -1, -1, -1]",0.185088,0.131808,1.404,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet_ch^SIR_13,dynamic,6,"[-1, -1, 64];[-1, -1, -1, -1]",0.054647,0.04687,1.166,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_46,dynamic,7,"[-1, 16, -1, -1];[-1, -1, -1, -1]",0.170192,0.124724,1.365,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x512_160k^SIR_14,unknown,-1,ERR: module 'case_mod_54' has no attribute 'create_inputspec',0.095621,0.073747,1.297,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_50,dynamic,4,"[-1, 256, -1, -1];[-1]",0.093009,0.071631,1.298,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_18,dynamic,7,"[-1, 32, -1, -1];[-1, -1, -1, -1]",0.193448,0.138119,1.401,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b3_cityscapes_1024x512_160k^SIR_18,unknown,-1,ERR: module 'case_mod_57' has no attribute 'create_inputspec',0.095922,0.075072,1.278,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet_ch^SIR_40,dynamic,2,"[-1, -1, 128]",0.046512,0.043089,1.079,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_26,unknown,-1,ERR: module 'case_mod_59' has no attribute 'create_inputspec',0.11943,0.088379,1.351,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_73,dynamic,10,"[-1, -1, -1];[-1, -1, -1];[-1, -1, -1, -1]",0.040016,0.03221,1.242,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet^SIR_72,dynamic,2,"[-1, -1, 256]",0.045085,0.034661,1.301,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_5,dynamic,7,"[-1, 8, -1, -1];[-1, -1, -1, -1]",0.146982,0.10649,1.380,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet_ch^SIR_26,dynamic,6,"[-1, -1, 128];[-1, -1, -1, -1]",0.048445,0.037444,1.294,OK
+layercase^sublayer1000^Det_cases^ppyolo_ppyolo_r50vd_dcn_voc^SIR_64,dynamic,40,"[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1];[-1, -1, -1, -1, -1]",0.03501,0.030061,1.165,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b3_cityscapes_1024x1024_160k^SIR_38,unknown,-1,ERR: module 'case_mod_65' has no attribute 'create_inputspec',0.124226,0.093731,1.325,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet^SIR_30,dynamic,6,"[-1, -1, 64];[-1, -1, -1, -1]",0.060393,0.035363,1.708,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b3_cityscapes_1024x512_160k^SIR_38,unknown,-1,ERR: module 'case_mod_67' has no attribute 'create_inputspec',0.094397,0.073437,1.285,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_62,dynamic,4,"[-1, 256, -1, -1];[-1]",0.099873,0.068649,1.455,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_68,dynamic,4,"[-1, 256, -1, -1];[-1]",0.11449,0.0723,1.584,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_44,dynamic,4,"[-1, 256, -1, -1];[-1]",0.090837,0.071816,1.265,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_56,dynamic,4,"[-1, 256, -1, -1];[-1]",0.096667,0.072012,1.342,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b3_cityscapes_1024x1024_160k^SIR_5,unknown,-1,ERR: module 'case_mod_72' has no attribute 'create_inputspec',0.219655,0.175272,1.253,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_l_320_coco^SIR_342,dynamic,4,"[-1, -1];[-1];[-1]",0.03142,0.025994,1.209,OK
+layercase^sublayer1000^Det_cases^semi_det_baseline_retinanet_r50_fpn_2x_coco_sup010^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.212863,0.161578,1.317,OK
+layercase^sublayer1000^Det_cases^gfl_gfl_r101vd_fpn_mstrain_2x_coco^SIR_35,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.182128,0.142722,1.276,OK
+layercase^sublayer1000^Det_cases^retinanet_retinanet_r101_fpn_2x_coco^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.187405,0.146113,1.283,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_38,dynamic,2,"[-1, -1, 256]",0.055735,0.04398,1.267,OK
+layercase^sublayer1000^Clas_cases^SqueezeNet_SqueezeNet1_0^SIR_0,dynamic,3,"[-1, 3, -1, -1]",0.645593,0.514754,1.254,OK
+layercase^sublayer1000^Clas_cases^Twins_alt_gvt_base^SIR_2,dynamic,3,"[-1, 3, -1, -1]",0.075631,0.058663,1.289,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_51,dynamic,7,"[-1, 32, -1, -1];[-1, -1, -1, -1]",0.101521,0.080024,1.269,OK
+layercase^sublayer1000^Det_cases^semi_det_baseline_fcos_r50_fpn_2x_coco_sup005^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.214405,0.143049,1.499,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_31,dynamic,7,"[-1, 64, -1, -1];[-1, -1, -1, -1]",0.143001,0.117031,1.222,OK
+layercase^sublayer1000^Det_cases^fcos_fcos_r50_fpn_multiscale_2x_coco^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.179691,0.141758,1.268,OK
+layercase^sublayer1000^Det_cases^ppyoloe_voc_ppyoloe_plus_crn_l_30e_voc^SIR_182,dynamic,19,"[-1, -1, -1];[-1, -1];[-1, -1, -1];[-1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.052966,0.045534,1.163,OK
+layercase^sublayer1000^Seg_cases^unet_plusplus_unet_plusplus_cityscapes_1024x512_160k^SIR_22,dynamic,12,"[-1, 32, -1, -1];[-1, 32, -1, -1];[-1, 32, -1, -1];[-1, 32, -1, -1]",0.113922,0.092332,1.234,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_49,dynamic,7,"[-1, 32, -1, -1];[-1, -1, -1, -1]",0.102451,0.081514,1.257,OK
+layercase^sublayer1000^Clas_cases^Twins_alt_gvt_base^SIR_84,dynamic,3,"[-1, 3, -1, -1]",0.035822,0.034606,1.035,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.183129,0.152081,1.204,OK
+layercase^sublayer1000^Ocr_cases^rec_rec_svtrnet^SIR_43,dynamic,6,"[-1, -1, 128];[-1, -1, -1, -1]",0.048314,0.036566,1.321,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_43,dynamic,7,"[-1, 8, -1, -1];[-1, -1, -1, -1]",0.081769,0.066998,1.220,OK
+layercase^sublayer1000^Det_cases^fcos_fcos_r50_fpn_iou_1x_coco^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.188761,0.151923,1.242,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_5,unknown,-1,ERR: module 'case_mod_92' has no attribute 'create_inputspec',0.232675,0.187273,1.242,OK
+layercase^sublayer1000^Clas_cases^RedNet_RedNet38^SIR_28,dynamic,7,"[-1, 64, -1, -1];[-1, -1, -1, -1]",0.145648,0.120035,1.213,OK
+layercase^sublayer1000^Det_cases^fcos_fcos_r50_fpn_1x_coco^SIR_33,dynamic,9,"[-1, 512, -1, -1];[-1, 1024, -1, -1];[-1, 2048, -1, -1]",0.186168,0.154198,1.207,OK
+layercase^sublayer1000^Seg_cases^segformer_segformer_b3_cityscapes_1024x1024_160k^SIR_18,unknown,-1,ERR: module 'case_mod_95' has no attribute 'create_inputspec',0.149165,0.112119,1.330,OK
+layercase^sublayer1000^Det_cases^gfl_gfl_r18vd_1x_coco^SIR_35,dynamic,9,"[-1, 128, -1, -1];[-1, 256, -1, -1];[-1, 512, -1, -1]",0.182239,0.149227,1.221,OK
+layercase^sublayer1000^Clas_cases^SwinTransformer_SwinTransformer_small_patch4_window7_224^SIR_140,dynamic,2,"[-1, -1, 96]",0.028383,0.023119,1.228,OK
+layercase^sublayer1000^Det_cases^smalldet_ppyoloe_plus_sod_crn_l_80e_coco^SIR_174,dynamic,19,"[-1, -1, -1];[-1, -1];[-1, -1, -1];[-1, -1];[-1, -1, -1];[-1, -1, -1];[-1, -1, -1]",0.074764,0.044182,1.692,OK
+layercase^sublayer1000^Seg_cases^danet_danet_resnet50_os8_voc12aug_512x512_40k^SIR_34,dynamic,9,"[-1, 512, -1, -1];[-1, 512, -1, -1];[-1, 2048, -1, -1]",0.093468,0.08221,1.137,OK

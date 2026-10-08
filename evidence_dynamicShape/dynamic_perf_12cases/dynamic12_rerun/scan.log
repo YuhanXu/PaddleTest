@@ -1,0 +1,12 @@
+  -> segformer_b0_1024x1024_SIR_14: dy=0.144833 cinn=0.105507 sp=1.373 sym=20 condF=16
+  -> segformer_b0_1024x512_SIR_26: dy=0.095665 cinn=0.067903 sp=1.409 sym=20 condF=16
+  -> segformer_b0_1024x512_SIR_14: dy=0.118353 cinn=0.073517 sp=1.610 sym=20 condF=16
+  -> segformer_b3_1024x512_SIR_18: dy=0.098776 cinn=0.076047 sp=1.299 sym=20 condF=16
+  -> segformer_b0_1024x1024_SIR_26: dy=0.139682 cinn=0.08928 sp=1.565 sym=20 condF=16
+  -> segformer_b3_1024x1024_SIR_38: dy=0.125979 cinn=0.094179 sp=1.338 sym=20 condF=16
+  -> segformer_b3_1024x512_SIR_38: dy=0.093511 cinn=0.082515 sp=1.133 sym=20 condF=16
+  -> segformer_b3_1024x1024_SIR_5: dy=0.221468 cinn=0.176073 sp=1.258 sym=20 condF=16
+  -> ppyoloe_voc_l_SIR_182: dy=0.052967 cinn=0.043252 sp=1.225 sym=2 condF=0
+  -> segformer_b0_1024x1024_SIR_5: dy=0.233825 cinn=0.180393 sp=1.296 sym=20 condF=16
+  -> segformer_b3_1024x1024_SIR_18: dy=0.16151 cinn=0.110794 sp=1.458 sym=20 condF=16
+  -> smalldet_sod_SIR_174: dy=0.053641 cinn=0.065393 sp=0.820 sym=3 condF=0

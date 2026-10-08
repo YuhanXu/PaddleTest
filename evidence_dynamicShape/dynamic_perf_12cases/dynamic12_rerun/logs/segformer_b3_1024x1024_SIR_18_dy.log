@@ -1,0 +1,7 @@
+2026-10-08 09:58:59,496-PaddleLT-[INFO] ===> log path: /work/PaddleTest/framework/e2e/PaddleLT_new/out_2026_10_08_09_58_59_496337.log
+2026-10-08 09:58:59,496-PaddleLT-[INFO] ===> LayerTest.__init__ 中 device_place_id is: 0
+2026-10-08 09:58:59,500-PaddleLT-[INFO] ===> 测试case名称: segformer_b3_1024x1024_SIR_18_dy
+2026-10-08 09:58:59,500-PaddleLT-[INFO] ===> 性能测试执行器: dy_eval_perf
+W1008 09:59:02.877301 52659 gpu_resources.cc:114] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.0, Runtime API Version: 12.9
+2026-10-08 09:59:02,879-LayerEvalBM-[INFO] ===> log path: /work/PaddleTest/framework/e2e/PaddleLT_new/out_2026_10_08_09_59_02_878921.log
+2026-10-08 09:59:05,488-PaddleLT-[INFO] ===> 用例 segformer_b3_1024x1024_SIR_18_dy 多执行器性能结果: {'dy_eval_perf': 0.16151}
