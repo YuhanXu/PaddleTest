@@ -6,6 +6,49 @@
 测试执行器
 """
 import os
+import sys
+
+# ---- csv-batch 模式环境自举(须在下方业务 import 之前) ----
+# 触发方式: `python run.py`(无 TESTING_MODE/CASE_TYPE 环境变量时默认) / `python run.py csv-batch` / PLT_CSV_BATCH=True
+# 功能: 按 /work/all_perf_sorted.csv 前 N(默认100) 个 OK case 批跑 dy vs cinn(每 case 独立子进程, 不用 nsys),
+#       生成 /work/all_perf_results_100.csv; 可用 PLT_CSV_IN/PLT_CSV_OUT/PLT_CSV_TOP_N/PLT_CSV_TIMEOUT 覆盖
+if (
+    os.environ.get("PLT_CSV_BATCH") == "True"
+    or (len(sys.argv) > 1 and sys.argv[1] == "csv-batch")
+    or (os.environ.get("TESTING_MODE") is None and os.environ.get("CASE_TYPE") is None)
+):
+    os.environ["PLT_CSV_BATCH"] = "True"
+    for _k, _v in {
+        "CASE_TYPE": "layercase",
+        "CASE_DIR": "sublayer1000",
+        "TESTING": "yaml/dy^dy2stcinn_eval-dy2st^dy2stcinn_eval_benchmark.yml",
+        "TESTING_MODE": "performance",
+        "MULTI_WORKER": "0",
+        "FRAMEWORK": "paddle",
+        "PLT_SET_DEVICE": "gpu",
+        "PLT_DEVICE_ID": "0",
+        "PLT_GET_NV_MEMORY": "False",
+        "PLT_BM_DB": "non-db",
+        "python_ver": "python",
+        "MIN_GRAPH_SIZE": "0",
+        "FLAGS_cinn_debug": "1",
+        "FLAGS_prim_forward_blacklist": "pd_op.dropout",
+    }.items():
+        os.environ.setdefault(_k, _v)
+    # libcuda.so.1 位于 /usr/lib64, paddle 位于系统 dist-packages, 均需进程启动时生效; 缺失则带默认环境重启自身
+    _need_restart = False
+    if "/usr/lib64" not in os.environ.get("LD_LIBRARY_PATH", "").split(":"):
+        os.environ["LD_LIBRARY_PATH"] = "/usr/lib64:" + os.environ.get("LD_LIBRARY_PATH", "")
+        _need_restart = True
+    _pp = os.environ.get("PYTHONPATH", "")
+    for _p in ("/usr/local/lib/python3.10/dist-packages", os.path.dirname(os.path.abspath(__file__))):
+        if _p and _p not in _pp.split(":"):
+            _pp = (_pp + ":" + _p) if _pp else _p
+            _need_restart = True
+    os.environ["PYTHONPATH"] = _pp
+    if _need_restart:
+        os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)] + sys.argv[1:])
+
 import shutil
 import subprocess
 from subprocess import TimeoutExpired
@@ -650,6 +693,64 @@ class Run(object):
         self._perf_upload()
         self._pts_callback(error_count)
 
+    def _csv_batch_perf_run(self):
+        """
+        csv-batch 模式: 读取已排序 csv 的前 N 个 OK case, 每 case 独立子进程批跑 dy/cinn(不使用 nsys),
+        逐行追加写入结果 csv, 单 case 崩溃/超时不影响其他 case
+        """
+        import csv
+        import re
+
+        csv_in = os.environ.get("PLT_CSV_IN", "/work/all_perf_sorted.csv")
+        csv_out = os.environ.get("PLT_CSV_OUT", "/work/all_perf_results_100.csv")
+        top_n = int(os.environ.get("PLT_CSV_TOP_N", "100"))
+        case_timeout = int(os.environ.get("PLT_CSV_TIMEOUT", "600"))
+        log_dir = os.environ.get("PLT_CSV_LOG_DIR", "/work/case_logs_100")
+        os.makedirs(log_dir, exist_ok=True)
+
+        with open(csv_in) as f:
+            rows = [r for r in csv.reader(f) if len(r) >= 5 and r[0] != "case" and r[4] == "OK"]
+        selected = rows[:top_n]
+        self.logger.get_log().info(f"csv-batch: 从 {csv_in} 选取前 {len(selected)} 个 OK case(请求 {top_n}), 输出 {csv_out}")
+
+        with open(csv_out, "w", newline="") as f:
+            csv.writer(f).writerow(["case", "dy_eval_perf", "dy2st_eval_cinn_perf", "speedup", "status"])
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        n_ok = 0
+        for i, r in enumerate(selected, 1):
+            title = r[0]
+            rel_path = title.replace("^", "/") + ".py"
+            tag = title.split("^")[-1]
+            log_file = os.path.join(log_dir, f"{tag}_{i}.log")
+            self.logger.get_log().info(f"[{i}/{len(selected)}] RUN {title}")
+
+            cmd = [sys.executable, "single_engine_runner.py", rel_path, f"{tag}_{i}", self.testing]
+            try:
+                proc = subprocess.run(
+                    cmd, cwd=base_dir, capture_output=True, timeout=case_timeout, text=True, errors="ignore"
+                )
+                out = proc.stdout + proc.stderr
+                with open(log_file, "w") as f:
+                    f.write(out)
+                m_dy = re.search(r"'dy_eval_perf': ([\d.]+)", out)
+                m_cinn = re.search(r"'dy2st_eval_cinn_perf': ([\d.]+)", out)
+                if m_dy and m_cinn:
+                    dy, cinn = float(m_dy.group(1)), float(m_cinn.group(1))
+                    speedup, status = f"{dy / cinn:.3f}", "OK"
+                    n_ok += 1
+                else:
+                    dy = cinn = speedup = ""
+                    status = "ERROR" if proc.returncode == 0 else f"FAIL(rc={proc.returncode})"
+            except subprocess.TimeoutExpired:
+                dy = cinn = speedup = ""
+                status = f"FAIL(timeout={case_timeout}s)"
+
+            with open(csv_out, "a", newline="") as f:
+                csv.writer(f).writerow([title, dy, cinn, speedup, status])
+
+        self.logger.get_log().info(f"csv-batch 完成: OK {n_ok}/{len(selected)}, 结果: {csv_out}")
+
     def _perf_report_gen(
         self, compare_list, baseline_dict, sublayer_dict, error_list, baseline_layer_type, latest_layer_type
     ):
@@ -762,6 +863,11 @@ class Run(object):
 
 
 if __name__ == "__main__":
+    if os.environ.get("PLT_CSV_BATCH") == "True":
+        tes = Run()
+        tes._csv_batch_perf_run()
+        sys.exit(0)
+
     tes = Run()
     if os.environ.get("TESTING_MODE") == "precision":
         if os.environ.get("MULTI_WORKER") == "0":

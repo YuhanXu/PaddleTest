@@ -122,6 +122,14 @@ nsys profile --stats=true python layertest.py > /work/PaddleTest/PaddleTest_QA_t
 - 批量脚本：/work/PaddleTest/framework/e2e/PaddleLT_new/run_nsys_batch.sh，已全部完成，共 57 个子图 × 2 场景 = 114 个 nsys profile。
 - 输出目录：/work/PaddleTest/PaddleTest_QA_test_ops_20260629，包含 57 个 dy log、57 个 cinn log、114 个 nsys-rep。
 
+进展记录（2026-09-30，新机器 dy vs cinn 复测 + nsys 开销验证）：
+- 批跑脚本：/work/run_batch.sh，yaml 已改为 dy_eval_perf（动态图）vs dy2st_eval_cinn_perf 两场景。注意执行器名是 dy_eval_perf（无 dy2_ 前缀，见 engine/paddle_eval_bm.py:79）。
+- 结果：/work/batch_results.txt（dy vs cinn）；上一次 dy2st_eval_perf vs cinn 的结果备份在 /work/batch_results_dy2st_vs_cinn.txt。
+- 新旧对比结论：cinn 列两台机器高度一致（0.018~0.03，可复现）；dy 列旧数据普遍比新机器裸跑慢约 2 倍，加速比"缩水"主因是分母（dy）被抬高。
+- 根因验证（SIR_107）：旧数据是在 nsys profile --stats=true 下采集的。nsys 拦截每次 CUDA API 调用，对 CPU-bound、每 iter 几百次 kernel launch 的 dy 场景开销极大（新机器 nsys 下 dy 0.0763→0.1405，+85%，与旧值 0.1582 吻合）；cinn 只有一个融合 kernel，受影响很小（0.0201→0.0234，+16%）。
+- s2anet/SIR_106 旧的 0.250 vs 新裸跑 0.011 的 23 倍差异同理，为 nsys 下的极端放大，非真实差异。
+- 结论：新旧数据对比必须统一口径——裸跑（真实性能）或 nsys（仅用于 profile 分析时）二选一。本文件 2026-06-29 表格中的 dy 值含 nsys 采集开销，系统性偏高，引用时需注意。
+
 失败子图（7个，均为 `paddle.tensor.ops` 旧 API 报错）：
 - Det_cases/mot_fairmot_fairmot_dla34_30e_1088x608_bytetracker/SIR_79
 - Det_cases/yolox_yolox_m_300e_coco/SIR_123
