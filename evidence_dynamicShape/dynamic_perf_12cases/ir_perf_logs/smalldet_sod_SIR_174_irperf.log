@@ -1,0 +1,22 @@
+W1009 09:58:49.927083 29479 gpu_resources.cc:114] Please NOTE: device: 0, GPU Compute Capability: 8.0, Driver API Version: 12.0, Runtime API Version: 12.9
+INPUTSPEC: [(-1, -1, -1), (-1, -1), (-1, -1, -1), (-1, -1), (-1, -1, -1), (-1, -1, -1), (-1, -1, -1)]
+RESULT dy_eval_perf 0.050684
+I1009 09:58:50.742018 29479 auto_layout_pass.cc:66] end IsNeedAllTranspose conv_count_: 0 transpose_count_: 0 transpose_scale_ * transpose_count_: 0
+I1009 09:58:50.746438 29479 add_cinn_pass.cc:330] Compiling subgraph with CINN backend ...
+W1009 09:58:50.751276 29479 pattern_rewrite_driver.cc:235] The pattern rewrite did not converge after scanning 10 times
+I1009 09:58:50.756647 29479 build_cinn_pass.cc:71] Time of building group ops (size=61): 0 min 0 s 3 ms
+I1009 09:58:50.803732 29479 add_cinn_pass.cc:355] FusionOp count before lowering : *****[ 7 ]*****
+W1009 09:58:50.811228 29553 broadcast_with_cf.cc:201] the number of leaf nodes in broadcast tree exceeds limit.
+W1009 09:58:50.818490 29554 broadcast_with_cf.cc:201] the number of leaf nodes in broadcast tree exceeds limit.
+I1009 09:59:13.984441 29479 add_cinn_pass.cc:372] Time of lowering and compiling program: ***** [ 23 ] ***** seconds.
+I1009 09:59:13.984509 29479 add_cinn_pass.cc:376] Number of ops in the original program is: 77, after lowering it becomes: 17. (compression ratio: 17/77 = 0.220779)
+I1009 09:59:13.990586 29479 pir_interpreter.cc:1601] New Executor is Running ...
+I1009 09:59:13.991284 29479 pir_interpreter.cc:1622] pir interpreter is running by trace mode ...
+RESULT dy2st_eval_cinn_dynspec_perf 0.040830
+I1009 09:59:14.469075 29479 auto_layout_pass.cc:66] end IsNeedAllTranspose conv_count_: 0 transpose_count_: 0 transpose_scale_ * transpose_count_: 0
+I1009 09:59:14.477406 29479 build_cinn_pass.cc:71] Time of building group ops (size=47): 0 min 0 s 1 ms
+I1009 09:59:14.484381 29479 add_cinn_pass.cc:355] FusionOp count before lowering : *****[ 5 ]*****
+I1009 09:59:26.907930 29479 add_cinn_pass.cc:372] Time of lowering and compiling program: ***** [ 12 ] ***** seconds.
+I1009 09:59:26.907998 29479 add_cinn_pass.cc:376] Number of ops in the original program is: 66, after lowering it becomes: 15. (compression ratio: 15/66 = 0.227273)
+RESULT dy2st_eval_cinn_nospec_perf 0.045015
+SUMMARY dy=0.050684 cinn_dyn=0.040830 cinn_static=0.045015 sp_dyn=1.241 sp_static=1.126 dyn_vs_static=1.103
