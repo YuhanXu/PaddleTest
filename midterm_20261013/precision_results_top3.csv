@@ -1,0 +1,4 @@
+case,precision,rc
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_14,passed,0
+layercase^sublayer1000^Det_cases^ppyoloe_voc_ppyoloe_plus_crn_l_30e_voc^SIR_182,passed,0
+layercase^sublayer1000^Det_cases^smalldet_ppyoloe_plus_sod_crn_l_80e_coco^SIR_174,passed,0

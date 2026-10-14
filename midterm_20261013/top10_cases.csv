@@ -1,0 +1,11 @@
+case,dy_eval_perf,dy2st_eval_cinn_perf,speedup,status
+layercase^sublayer1000^Det_cases^tood_tood_r50_fpn_1x_coco^SIR_34,0.246405,0.033649,7.323,OK
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_35,0.195945,0.028436,6.891,OK
+layercase^sublayer1000^Det_cases^ppyoloe_ppyoloe_plus_crn_l_80e_coco^SIR_167,0.15462,0.024398,6.337,OK
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_48,0.164533,0.027042,6.084,OK
+layercase^sublayer1000^Det_cases^yolox_yolox_m_300e_coco^SIR_123,0.279409,0.051899,5.384,OK
+layercase^sublayer1000^Det_cases^rotate_ppyoloe_r_ppyoloe_r_crn_x_3x_dota^SIR_167,0.118928,0.02423,4.908,OK
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107,0.078356,0.020037,3.911,OK
+layercase^sublayer1000^Det_cases^gfl_gfl_r50_fpn_1x_coco^SIR_140,0.056546,0.021725,2.603,OK
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_l_320_coco^SIR_341,0.047415,0.020892,2.270,OK
+layercase^sublayer1000^Det_cases^mot_jde_jde_darknet53_30e_864x480^SIR_75,0.074041,0.049796,1.487,OK

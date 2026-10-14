@@ -32,9 +32,16 @@
 | T6 | 编译次数计数与关缓存对照 | 证明一次编译服务全部 shape | 判据 4-d |
 | T8 | 自动调优的触发/选择/代价 | 补齐运行期选桶、静态负对照、性能对比 | 判据 4-e/4-f |
 | T7 | 归档与截图 | 形成可复核的证据链 | 交付 |
+| **T10** | **v2 性能方案** | **10 个高收益不重复场景的三方性能验证（新主用例矩阵，picodet_l_640/SIR_17 降级为代价量化样本）** | **判据见 T10.4** |
 
 > T8 在文档中排在 T6 之后、T7（归档）之前执行；编号沿用新增顺序，未重排既有编号，
 > 以免和已发出的报告、截图编号对不上。
+>
+> **2026-10-10 更新**：T1~T9 的性能展示主用例原为 `picodet_l_640_coco/SIR_17`（SE
+> 子图），新机器批跑实测 0.903x（融合收益盖不住桥接开销），不适合作"动态 shape
+> 融合收益"正例。**性能验证方案已由 T10 取代**（10 个高收益不重复场景，sp_dyn
+> 10/10 > 1）；SIR_17 保留用于 T8.3/T9 的分桶代价量化。T1~T9 的功能/编译行为/
+> 调优判据不受影响，仍按原步骤执行。
 
 ---
 
@@ -750,9 +757,109 @@ S[1024,2147483647]  warpNum=8, spatialInnerNum=2   # 大 numel 搜索最优桶
 `optimal_tile_config.json`（最终双桶配置）、`optimal_src.cu`（双桶生成的
 CUDA 源码）、`kern_agg.py`（nsys trace 聚合脚本）。
 
+---
 
+## T10 v2 方案：10 个高收益不重复场景的动态 shape 三方验证（2026-10-10）
 
+### T10.0 背景与主用例更替
 
+原方案主用例 `picodet_l_640_coco/SIR_17`（SE 子图，inputspec `[-1,72,-1,-1]`）在新机器
+（yq01-inf-hic-k8s-a100-aa24-0582）全量批跑中 `dy2st_eval_cinn_perf` 为 **0.903x**
+（dy 0.044653 vs cinn 0.049431，见 `/work/all_perf_sorted.csv`）——SE 小算子子图 GPU busy
+极低，融合收益盖不住 run_program 桥接开销，属于"动态编译代价量化"样本（T8.3 的
+kernel 级 1.52x 分桶代价测量仍以它为对象），**不适合作为"动态 shape 场景 CINN 融合
+性能提升"的正例主用例**。
+
+v2 从 `/work/all_perf_results_100.csv`（新机器 top100 复测，1107 全量批跑的前 100）
+重新选型：按"网络家族"去重（yolox_m/x/nano/cdn/crn_s 等规模变体归为一族）后取
+speedup 降序前 10，覆盖 9 个模型家族、4 类子图场景。
+
+### T10.1 用例矩阵（10 个不重复场景）
+
+| # | 场景家族 | case 相对路径 | 批跑基线(dy/cinn/sp) | spec 声明 |
+|---|---|---|---|---|
+| 1 | tood_fpn | `Det_cases/tood_tood_r50_fpn_1x_coco/SIR_34.py` | 0.2331/0.0239/9.77x | static |
+| 2 | rotate_fcosr | `Det_cases/rotate_fcosr_fcosr_x50_3x_dota/SIR_35.py` | 0.1985/0.0292/6.80x | dynamic(20 维 -1) |
+| 3 | yolox | `Det_cases/yolox_yolox_m_300e_coco/SIR_123.py` | 0.3376/0.0508/6.65x | dynamic(27 维 -1) |
+| 4 | LeViT | `Clas_cases/LeViT_LeViT_128/SIR_48.py` | 0.2356/0.0369/6.39x | 无 create_inputspec(全 -1 兜底) |
+| 5 | rcnn_enhance | `Det_cases/rcnn_enhance_faster_rcnn_enhance_3x_coco/SIR_107_sub3.py` | 0.1228/0.0218/5.63x | dynamic(2 维 -1) |
+| 6 | rotate_ppyoloe | `Det_cases/rotate_ppyoloe_r_ppyoloe_r_crn_x_3x_dota/SIR_167.py` | 0.1340/0.0249/5.39x | dynamic(12 维 -1) |
+| 7 | ppyoloe_plus | `Det_cases/ppyoloe_ppyoloe_plus_crn_l_80e_coco/SIR_167.py` | 0.1405/0.0333/4.22x | static |
+| 8 | picodet | `Det_cases/picodet_legacy_model_picodet_l_320_coco/SIR_341.py` | 0.0668/0.0217/3.08x | dynamic(4 维 -1) |
+| 9 | mot_jde | `Det_cases/mot_jde_jde_darknet53_30e_864x480/SIR_75.py` | 0.1167/0.0478/2.44x | dynamic(9 维 -1) |
+| 10 | gfl_fpn | `Det_cases/gfl_gfl_r50_fpn_1x_coco/SIR_140.py` | 0.0372/0.0195/1.91x | dynamic(4 维 -1) |
+
+注：#1/#7 声明静态 spec（`shape_mode=static`），dyn 列实为静态编译，作为天然对照组；
+其余 8 个为显式动态声明（含 LeViT 无 spec 时全 -1 兜底，与 `ir_perf_probe.py`
+的 `make_dyn_spec` 逻辑一致）。
+
+### T10.2 执行方式
+
+驱动脚本（每 case 两个独立子进程：三方性能 + dyn-spec kernel 落盘）：
+
+```bash
+bash /work/PaddleTest/evidence_dynamicShape/dynamic_perf_top10/run_ir_perf_top10.sh
+```
+
+单 case 手工命令（在 `PaddleLT_new` 目录下）：
+
+```bash
+# 三方性能: dy / cinn动态spec编译 / cinn静态tracing(批跑同口径)
+cd /work/PaddleTest/framework/e2e/PaddleLT_new
+export MIN_GRAPH_SIZE=0 FLAGS_cinn_debug=1 FLAGS_prim_forward_blacklist=pd_op.dropout
+export LD_LIBRARY_PATH=/usr/lib64 PYTHONPATH=/usr/local/lib/python3.10/dist-packages:.
+python /work/PaddleTest/evidence_dynamicShape/dynamic_perf_12cases/ir_perf_probe.py \
+    layercase/sublayer1000/Det_cases/tood_tood_r50_fpn_1x_coco/SIR_34.py
+
+# dyn-spec 编译 kernel 落盘(符号形参/谓词桶统计)
+FLAGS_cinn_source_code_save_path=/tmp/tood.cu \
+python /work/PaddleTest/evidence_dynamicShape/dynamic_perf_12cases/kernel_sig_dyn_spec.py \
+    layercase/sublayer1000/Det_cases/tood_tood_r50_fpn_1x_coco/SIR_34.py
+```
+
+计时口径与批跑一致（warmup 10 + 10 轮 × 100 iter，轮含 cuda sync，取轮均值）。
+
+### T10.3 结果（2026-10-10 实测，`/work/all_perf_results_100_dy_shape_top10.csv`）
+
+| case | dy | cinn_dyn | cinn_static | sp_dyn | sp_static | dyn/static | 符号形参 | 桶 |
+|---|---|---|---|---|---|---|---|---|
+| tood_SIR_34 | 0.2500 | 0.0207 | 0.0227 | **12.07x** | 11.01x | 1.10 | 0 | 0 |
+| fcosr_SIR_35 | 0.2035 | 0.0867 | 0.0261 | 2.35x | 7.79x | **0.30** | 40 | 8 |
+| yolox_m_SIR_123 | 0.2667 | 0.0648 | 0.0401 | 4.12x | 6.66x | 0.62 | 34 | 16 |
+| LeViT_SIR_48 | 0.1672 | 0.0255 | 0.0263 | 6.56x | 6.35x | 1.03 | 10 | 8 |
+| rcnn_enh_SIR_107_sub3 | 0.0822 | 0.0330 | 0.0181 | 2.49x | 4.54x | 0.55 | 4 | 12 |
+| rot_ppyoloe_x_SIR_167 | 0.1263 | 0.0707 | 0.0274 | 1.79x | 4.61x | 0.39 | 24 | 8 |
+| ppyoloe_plus_l_SIR_167 | 0.1481 | 0.0195 | 0.0231 | **7.58x** | 6.40x | 1.18 | 0 | 0 |
+| picodet_l_320_SIR_341 | 0.0372 | 0.0345 | 0.0189 | 1.08x | 1.96x | 0.55 | 8 | 36 |
+| mot_jde_SIR_75 | 0.0750 | 0.0553 | 0.0462 | 1.36x | 1.62x | 0.84 | 18 | 112 |
+| gfl_SIR_140 | 0.0407 | 0.0305 | 0.0173 | 1.33x | 2.35x | 0.57 | 8 | 36 |
+
+### T10.4 判据与结论
+
+1. **判据 A（动态编译触发）**：8/10 的 dyn-spec 编译真实产出符号形参 kernel
+   （`int32_t S*` > 0 且 `COND__F` 桶 > 0）——✅ 通过；2 个静态声明 case 为对照组
+2. **判据 B（动态场景融合收益）**：**10/10 sp_dyn > 1**（1.08x ~ 12.07x，中位 2.4x）——
+   即使付出分桶泛化代价，动态编译的 CINN 仍全面胜出 eager——✅ 通过。
+   与 12 个内生动态 case（批跑无 spec 口径，11/12 胜、中位 1.32x，
+   `dynamic12_rerun/results.csv`）互为印证
+3. **判据 C（分桶代价分层）**：dyn/static 代价与符号形参数量强相关——
+   轻度动态（≤10 维）：0.55 ~ 1.03；重度动态（24~40 维全 -1）：0.30 ~ 0.39
+   （融合 kernel 退化为泛化分桶版，最长 3.3 倍）。**实践含义：spec 只声明必要的 -1 维，
+   避免全 -1 兜底**（fcosr 20 维 -1 → 0.30x 是反面教材；rcnn_enhance 只声明 2 维 → 0.55x）
+4. 原判据（§3）中"根据不同张量形状自动调优"的结论不变：分桶选择本身有效（T8.1/T9），
+   v2 补充了"代价随符号维度数增长"的量化边界
+
+### T10.5 产物与复现
+
+- 驱动脚本：`evidence_dynamicShape/dynamic_perf_top10/run_ir_perf_top10.sh`
+- 三方探针：`evidence_dynamicShape/dynamic_perf_12cases/ir_perf_probe.py`
+- kernel 落盘 runner：`evidence_dynamicShape/dynamic_perf_12cases/kernel_sig_dyn_spec.py`
+- 结果 csv：`/work/all_perf_results_100_dy_shape_top10.csv`（本表数据源）
+- kernel 源码：`evidence_dynamicShape/dynamic_perf_top10/kernel/{tag}.cu`（10 份）
+- 运行日志：`evidence_dynamicShape/dynamic_perf_top10/logs/`（irperf + kernel 两类）
+- 选型依据：`/work/all_perf_results_100.csv` + 家族去重规则（脚本内注释）
+
+---
 ---
 
 ## T7 归档

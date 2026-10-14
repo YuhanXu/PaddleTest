@@ -1,0 +1,11 @@
+case,precision,rc
+layercase^sublayer1000^Det_cases^tood_tood_r50_fpn_1x_coco^SIR_34,passed,0
+layercase^sublayer1000^Det_cases^rotate_fcosr_fcosr_x50_3x_dota^SIR_35,passed,0
+layercase^sublayer1000^Det_cases^ppyoloe_ppyoloe_plus_crn_l_80e_coco^SIR_167,passed,0
+layercase^sublayer1000^Clas_cases^LeViT_LeViT_128^SIR_48,passed,0
+layercase^sublayer1000^Det_cases^yolox_yolox_m_300e_coco^SIR_123,passed,0
+layercase^sublayer1000^Det_cases^rotate_ppyoloe_r_ppyoloe_r_crn_x_3x_dota^SIR_167,passed,0
+layercase^sublayer1000^Det_cases^rcnn_enhance_faster_rcnn_enhance_3x_coco^SIR_107,passed,0
+layercase^sublayer1000^Det_cases^gfl_gfl_r50_fpn_1x_coco^SIR_140,passed,0
+layercase^sublayer1000^Det_cases^picodet_legacy_model_picodet_l_320_coco^SIR_341,passed,0
+layercase^sublayer1000^Det_cases^mot_jde_jde_darknet53_30e_864x480^SIR_75,passed,0

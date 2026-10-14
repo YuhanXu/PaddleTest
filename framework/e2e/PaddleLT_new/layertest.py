@@ -258,7 +258,7 @@ class LayerTest(object):
 
 
 if __name__ == "__main__":
-    layerfile = sys.argv[1] if len(sys.argv) > 1 else "layercase/sublayer1000/Det_cases/dcn_faster_rcnn_dcn_r101_vd_fpn_1x_coco/SIR_35.py" # 子图case路径
+    layerfile = sys.argv[1] if len(sys.argv) > 1 else "layercase/sublayer1000/Det_cases/rcnn_enhance_faster_rcnn_enhance_3x_coco/SIR_107.py" # 子图case路径
     testing = "yaml/dy^dy2stcinn_eval-dy2st^dy2stcinn_eval_benchmark.yml"
     single_test = LayerTest(title=sys.argv[2] if len(sys.argv) > 2 else "your_name", layerfile=layerfile, testing=testing)
     # single_test._case_run()
