@@ -62,6 +62,21 @@ def base_compare(result, expect, res_name, exp_name, logger, delta=1e-10, rtol=1
         try:
             np.testing.assert_allclose(actual=result, desired=expect, atol=delta, rtol=rtol, equal_nan=True)
 
+            # 中期验收要求: 通过时输出实际误差与按 atol/rtol 算出的容差明细
+            flat_diff = np.abs(result - expect).ravel()
+            flat_diff = np.where(np.isnan(flat_diff), 0.0, flat_diff)
+            flat_exp = np.abs(expect).ravel()
+            if flat_diff.size:
+                idx = int(np.argmax(flat_diff))
+                max_abs_diff = float(flat_diff[idx])
+                tol_at_max = float(delta + rtol * flat_exp[idx])
+                ratio = max_abs_diff / tol_at_max if tol_at_max > 0 else 0.0
+                logger.info(
+                    "PRECISION_DETAIL res={} PASS max_abs_diff={:.6e} atol={} rtol={} tol_at_max_diff={:.6e} diff/tol={:.2%}".format(
+                        res_name, max_abs_diff, delta, rtol, tol_at_max, ratio
+                    )
+                )
+
             if result.dtype != expect.dtype:
                 logger.warn(
                     "Different output data types! res type is: {}, and expect type is: {}".format(
