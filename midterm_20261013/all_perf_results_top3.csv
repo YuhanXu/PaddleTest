@@ -1,4 +1,4 @@
-case,dy_eval_perf,dy2st_eval_cinn_perf,speedup,status
-layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_14,0.1366,0.10317,1.324,OK
-layercase^sublayer1000^Det_cases^ppyoloe_voc_ppyoloe_plus_crn_l_30e_voc^SIR_182,0.051898,0.043114,1.204,OK
-layercase^sublayer1000^Det_cases^smalldet_ppyoloe_plus_sod_crn_l_80e_coco^SIR_174,0.053239,0.046051,1.156,OK
+case,dy_eval_perf,dy2st_eval_cinn_perf,speedup,fusion_perf_gain,status
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_14,0.144631,0.104315,1.386,38.6%,OK
+layercase^sublayer1000^Det_cases^ppyoloe_voc_ppyoloe_plus_crn_l_30e_voc^SIR_182,0.05682,0.043821,1.297,29.7%,OK
+layercase^sublayer1000^Det_cases^smalldet_ppyoloe_plus_sod_crn_l_80e_coco^SIR_174,0.051736,0.048757,1.061,6.1%,OK

@@ -106,4 +106,18 @@ bash /work/PaddleTest/midterm_20261013/run_precision_top3.sh
 
 git status --porcelain | grep -v '^??'
 
+验收标准(固定):  atol = 0.01,  rtol = 0.01
+
+逐点容差(每个输出元素各算一次):
+    tol[i] = atol + rtol × |expect[i]|
+           = 0.01 + 0.01 × 该点期望值
+
+实测(找最大绝对误差点):
+    max_abs_diff     = max_i |result[i] − expect[i]|        ← 最坏点的实际误差
+    tol_at_max_diff  = atol + rtol × |expect[该最坏点]|     ← 该点按标准算出的容差
+
+额度占用率:
+    diff/tol = max_abs_diff ÷ tol_at_max_diff × 100%        ← <100% 即通过
+代入 SIR_14：最坏点期望值 ≈0.166 → tol = 0.01 + 0.01×0.166 = 1.166e-02；实际误差 7.69e-05；占比 0.66%（裕量 99.34%）。assert_allclose 的完整判定是所有点都满足 |diff[i]| ≤ tol[i]，明细行展示的是最坏绝对误差点的情形。
+
 

@@ -1,4 +1,4 @@
-case,precision,rc
-layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_14,passed,0
-layercase^sublayer1000^Det_cases^ppyoloe_voc_ppyoloe_plus_crn_l_30e_voc^SIR_182,passed,0
-layercase^sublayer1000^Det_cases^smalldet_ppyoloe_plus_sod_crn_l_80e_coco^SIR_174,passed,0
+case,precision,rc,max_abs_diff,atol,rtol,tol_at_max_diff,diff/tol
+layercase^sublayer1000^Seg_cases^segformer_segformer_b0_cityscapes_1024x1024_160k^SIR_14,passed,0,7.688999e-05,0.01,0.01,1.166105e-02,0.66%
+layercase^sublayer1000^Det_cases^ppyoloe_voc_ppyoloe_plus_crn_l_30e_voc^SIR_182,passed,0,0.000000e+00,0.01,0.01,1.000000e-02,0.00%
+layercase^sublayer1000^Det_cases^smalldet_ppyoloe_plus_sod_crn_l_80e_coco^SIR_174,passed,0,0.000000e+00,0.01,0.01,1.000000e-02,0.00%
