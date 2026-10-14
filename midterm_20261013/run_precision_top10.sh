@@ -1,7 +1,7 @@
 #!/bin/bash
 # run_precision_top10.sh -- top10 case 精度批跑(框架原生链路)
 # yaml: dy^dy2stcinn_eval_inputspec.yml  dy_eval vs dy2st_eval_cinn_inputspec
-#       precision: delta=0.001 rtol=0.001 (20261013 放宽后阈值)
+#       precision: delta=0.01 rtol=0.01 (中期验收要求)
 # 每 case 独立子进程跑 single_case_run_runner.py(调 SingleTest._case_run),
 # 失败时进程 assert False(rc!=0), 汇总退出码 + 日志中的 precision 结果
 # 产物: /work/precision_results_top10.csv + /work/case_logs_top10_prec/

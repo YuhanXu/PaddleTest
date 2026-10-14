@@ -1,7 +1,7 @@
 #!/bin/bash
 # run_precision_top3.sh -- 3 个动态 shape 场景精度批跑(框架原生链路)
 #   yaml/dy^dy2stcinn_eval_inputspec.yml: dy_eval vs dy2st_eval_cinn_inputspec
-#   precision: delta=0.001 rtol=0.001 (20261013 放宽后阈值)
+#   precision: delta=0.01 rtol=0.01 (中期验收要求)
 # 失败时进程 assert False(rc!=0), 汇总退出码 + 日志中的 precision 结果
 # 产物: /work/precision_results_top3.csv + /work/case_logs_top3_prec/
 set -u
