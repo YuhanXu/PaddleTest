@@ -714,7 +714,9 @@ class Run(object):
         self.logger.get_log().info(f"csv-batch: 从 {csv_in} 选取前 {len(selected)} 个 OK case(请求 {top_n}), 输出 {csv_out}")
 
         with open(csv_out, "w", newline="") as f:
-            csv.writer(f).writerow(["case", "dy_eval_perf", "dy2st_eval_cinn_perf", "speedup", "status"])
+            csv.writer(f).writerow(
+                ["case", "dy_eval_perf", "dy2st_eval_cinn_perf", "speedup", "fusion_perf_gain", "status"]
+            )
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         n_ok = 0
@@ -737,17 +739,20 @@ class Run(object):
                 m_cinn = re.search(r"'dy2st_eval_cinn_perf': ([\d.]+)", out)
                 if m_dy and m_cinn:
                     dy, cinn = float(m_dy.group(1)), float(m_cinn.group(1))
-                    speedup, status = f"{dy / cinn:.3f}", "OK"
+                    speedup = f"{dy / cinn:.3f}"
+                    # 访存密集型算子融合后的性能提升率: (dy_eval_perf - cinn) / cinn * 100%
+                    gain = f"{(dy - cinn) / cinn * 100:.1f}%"
+                    status = "OK"
                     n_ok += 1
                 else:
-                    dy = cinn = speedup = ""
+                    dy = cinn = speedup = gain = ""
                     status = "ERROR" if proc.returncode == 0 else f"FAIL(rc={proc.returncode})"
             except subprocess.TimeoutExpired:
-                dy = cinn = speedup = ""
+                dy = cinn = speedup = gain = ""
                 status = f"FAIL(timeout={case_timeout}s)"
 
             with open(csv_out, "a", newline="") as f:
-                csv.writer(f).writerow([title, dy, cinn, speedup, status])
+                csv.writer(f).writerow([title, dy, cinn, speedup, gain, status])
 
         self.logger.get_log().info(f"csv-batch 完成: OK {n_ok}/{len(selected)}, 结果: {csv_out}")
 
