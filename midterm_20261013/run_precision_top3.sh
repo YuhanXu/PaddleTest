@@ -41,5 +41,5 @@ done
 echo "==== [$(date '+%Y-%m-%d %H:%M:%S')] ALL DONE ===="
 echo "--- 汇总:"
 cat "$OUT"
-ok=$(tail -n +2 "$OUT" | awk -F, '$2=="success"' | wc -l)
+ok=$(tail -n +2 "$OUT" | awk -F, '$2=="passed"' | wc -l)
 echo "    通过 $ok / $total"
